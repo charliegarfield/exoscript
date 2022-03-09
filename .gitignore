@@ -1,3 +1,4 @@
 /.DS_Store
-/exoscript-0.0.1.vsix
 /vsc-extension-quickstart.md
+
+*.vsix
