@@ -2,7 +2,7 @@
     "name": "exoscript",
     "displayName": "Exoscript Support",
     "description": "Support for the Exoscript language from I was a Teenage Exocolonist",
-    "version": "0.0.2",
+    "version": "0.1.0",
     "publisher": "CharlieGarfield",
     "repository": {
         "type": "git",
@@ -17,22 +17,34 @@
         "Snippets"
     ],
     "contributes": {
-        "languages": [{
-            "id": "exoscript",
-            "aliases": ["Exoscript", "exoscript"],
-            "extensions": [".txt",".exo",".exotxt",".exo.txt"],
-            "configuration": "./language-configuration.json"
-        }],
-        "grammars": [{
-            "language": "exoscript",
-            "scopeName": "source.sample",
-            "path": "./syntaxes/sample.tmLanguage"
-        }],
+        "languages": [
+            {
+                "id": "exoscript",
+                "aliases": [
+                    "Exoscript",
+                    "exoscript"
+                ],
+                "extensions": [
+                    ".txt",
+                    ".exo",
+                    ".exotxt",
+                    ".exo.txt"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "exoscript",
+                "scopeName": "source.sample",
+                "path": "./syntaxes/sample.tmLanguage"
+            }
+        ],
         "snippets": [
             {
-              "language": "exoscript",
-              "path": "./snippets/exoscript.json"
+                "language": "exoscript",
+                "path": "./snippets/exoscript.json"
             }
-          ]
+        ]
     }
 }
