@@ -1,4 +1,8 @@
 /.DS_Store
 /vsc-extension-quickstart.md
-
+out
+node_modules
+client/server
+.vscode-test
 *.vsix
+exodata
