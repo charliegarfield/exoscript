@@ -2,6 +2,19 @@
     "Event": {
         "scope": "exoscript",
         "prefix": ["==="],
-        "body": ["=== ${1:eventid} =============================================="]
+        "body": ["=== ${1:eventid} =============================================="],
+        "description": "create event line"
+    },
+    "Anemone": {
+        "scope": "exoscript",
+        "prefix": ["anne", "ane", "Anemone"],
+        "body": ["[=mem_AnneNick]"],
+        "description": "insert anemone nickname"
+    },
+    "Comment Block": {
+        "scope": "exoscript",
+        "prefix": ["/**", "/*"],
+        "body": ["/******************************************************************************* }*/\n/* ${1:comment} ***********************************************************************/\n/******************************************************************************* {*/"],
+        "description": "insert anemone nickname"
     }
 }
