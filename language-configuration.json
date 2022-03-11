@@ -26,5 +26,9 @@
         ["(", ")"],
         ["\"", "\""],
         ["'", "'"]
-    ]
+    ],
+    "indentationRules": {
+        "increaseIndentPattern": "^[ \t]*\\*+.*$|^[ \t]*\\[(if.*|else.*)\\]$|^={3}.*$",
+        "decreaseIndentPattern": "^[ \t]*\\*+.*$"
+      },
 }
