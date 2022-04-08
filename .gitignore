@@ -1,4 +1,5 @@
-/.DS_Store
+.DS_Store
+Thumbs.db
 /vsc-extension-quickstart.md
 out
 node_modules
