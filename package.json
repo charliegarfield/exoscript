@@ -2,7 +2,7 @@
     "name": "exoscript",
     "displayName": "Exoscript Support",
     "description": "Support for the Exoscript language from I Was a Teenage Exocolonist",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "publisher": "CharlieGarfield",
     "repository": {
         "type": "git",
