@@ -17,7 +17,8 @@
         ["[", "]"],
         ["(", ")"],
         ["\"", "\""],
-        ["'", "'"]
+        ["'", "'"],
+        ["_", "_"]
     ],
     // symbols that can be used to surround a selection
     "surroundingPairs": [
@@ -25,7 +26,8 @@
         ["[", "]"],
         ["(", ")"],
         ["\"", "\""],
-        ["'", "'"]
+        ["'", "'"],
+        ["_", "_"]
     ],
     "indentationRules": {
         "increaseIndentPattern": "^[ \t]*\\*+.*$|^[ \t]*\\[(if.*|else.*)\\]$|^={3}.*$",
