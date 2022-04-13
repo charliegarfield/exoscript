@@ -45,6 +45,10 @@ A few edge cases can break syntax highlighitng at the moment
 
 - Store page fixes and more snippets
 
+### 0.9.0
+
+- Added choiceid highlighting
+
 -----------------------------------------------------------------------------------------------------------
 
 **Enjoy!**
