@@ -46,5 +46,23 @@
                 "path": "./snippets/exoscript.json"
             }
         ]
+    },
+    "release": {
+        "branches": "master",
+        "verifyConditions": [
+            "@semantic-release/github"
+        ],
+        "publish": [
+            "@semantic-release/github"
+        ],
+        "success": [
+            "@semantic-release/github"
+        ],
+        "fail": [
+            "@semantic-release/github"
+        ]
+    },
+    "devDependencies": {
+        "@semantic-release/github": "^8.0.4"
     }
 }
