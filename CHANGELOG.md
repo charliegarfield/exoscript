@@ -33,3 +33,6 @@ All notable changes to the "exoscript" extension will be documented in this file
 
 - Store page fixes and more snippets
 
+## [0.9.0]
+
+- Added choiceid highlighting
