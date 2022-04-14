@@ -1,4 +1,4 @@
-[![CI](https://github.com/charliegarfield/exoscript/actions/workflows/ci.yml/badge.svg)](https://github.com/charliegarfield/exoscript/actions/workflows/ci.yml)
+[![CI](https://github.com/charliegarfield/exoscript/actions/workflows/ci.yml/badge.svg?branch=master&event=push)](https://github.com/charliegarfield/exoscript/actions/workflows/ci.yml)
 
 ## Exoscript for VSCode
 
