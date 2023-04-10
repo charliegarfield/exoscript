@@ -27,7 +27,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release
       - name: Vscode release plugin
-        if: steps.semantic.outputs.new_release_published == 'true'
+        id: vscode
         uses: JCofman/vscodeaction@master
         env:
           PUBLISHER_TOKEN: ${{ secrets.PUBLISHER_TOKEN }}
