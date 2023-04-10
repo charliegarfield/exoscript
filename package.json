@@ -47,6 +47,7 @@
             }
         ]
     },
+    "extensionDependencies": ["ms-dotnettools.vscode-dotnet-runtime"],
     "release": {
         "branches": "master",
         "verifyConditions": [
