@@ -46,7 +46,7 @@
                 "path": "./snippets/exoscript.json"
             }
         ]
-    }, 
+    },
     "extensionDependencies": ["ms-dotnettools.vscode-dotnet-runtime"],
     "release": {
         "branches": "master",
