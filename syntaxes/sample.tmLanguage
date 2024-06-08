@@ -3,7 +3,7 @@
 <plist version="1.0" >
 <!-- Generated via Iro -->
 <dict>
-  <key>fileTypes</key>   
+  <key>fileTypes</key>  
   <array> 
     <string>txt</string>
     <string>exo</string>
