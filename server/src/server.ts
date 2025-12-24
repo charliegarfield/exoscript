@@ -2,7 +2,7 @@
  * Exoscript Language Server
  *
  * LSP server implementation for the Exoscript narrative scripting language.
- * Provides diagnostics for syntax and semantic errors.
+ * Provides diagnostics, completion, hover, go-to-definition, symbols, and folding.
  */
 
 import {
@@ -14,19 +14,24 @@ import {
   TextDocumentSyncKind,
   DidChangeConfigurationNotification,
   Diagnostic,
-  // Future enhancement imports:
-  // CompletionItem,
-  // CompletionItemKind,
-  // TextDocumentPositionParams,
-  // Hover,
-  // Definition,
-  // DocumentSymbol,
-  // FoldingRange,
+  CompletionItem,
+  TextDocumentPositionParams,
+  Hover,
+  Definition,
+  Location,
+  DocumentSymbol,
+  FoldingRange,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
 import { analyzeDiagnostics } from './diagnostics';
+import { parse, ParserResult } from './parser';
+import { getDocumentSymbols } from './symbols';
+import { getFoldingRanges } from './folding';
+import { getHover } from './hover';
+import { getCompletions } from './completion';
+import { StoryNode } from './types';
 
 // Create a connection for the server using Node's IPC or stdio
 const connection = createConnection(ProposedFeatures.all);
@@ -34,10 +39,12 @@ const connection = createConnection(ProposedFeatures.all);
 // Create a document manager that syncs document content
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
+// Cache for parsed documents
+const documentParseCache: Map<string, ParserResult> = new Map();
+
 // Server capabilities
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
-// let hasDiagnosticRelatedInformationCapability = false;
 
 // Server settings
 interface ExoscriptSettings {
@@ -49,6 +56,20 @@ let globalSettings: ExoscriptSettings = defaultSettings;
 
 // Cache of document settings
 const documentSettings: Map<string, Thenable<ExoscriptSettings>> = new Map();
+
+/**
+ * Get cached parse result for a document, or parse it
+ */
+function getParseResult(document: TextDocument): ParserResult {
+  const cached = documentParseCache.get(document.uri);
+  if (cached) {
+    return cached;
+  }
+
+  const result = parse(document.getText());
+  documentParseCache.set(document.uri, result);
+  return result;
+}
 
 /**
  * Initialize the server
@@ -63,33 +84,28 @@ connection.onInitialize((params: InitializeParams): InitializeResult => {
   hasWorkspaceFolderCapability = !!(
     capabilities.workspace && !!capabilities.workspace.workspaceFolders
   );
-  // hasDiagnosticRelatedInformationCapability = !!(
-  //   capabilities.textDocument &&
-  //   capabilities.textDocument.publishDiagnostics &&
-  //   capabilities.textDocument.publishDiagnostics.relatedInformation
-  // );
 
   const result: InitializeResult = {
     capabilities: {
       textDocumentSync: TextDocumentSyncKind.Incremental,
 
-      // TODO: Future enhancement - Enable completion
-      // completionProvider: {
-      //   resolveProvider: true,
-      //   triggerCharacters: ['~', '[', '>', '=', '*']
-      // },
+      // Completion
+      completionProvider: {
+        resolveProvider: false,
+        triggerCharacters: ['~', '>', '[', '_']
+      },
 
-      // TODO: Future enhancement - Enable hover
-      // hoverProvider: true,
+      // Hover
+      hoverProvider: true,
 
-      // TODO: Future enhancement - Enable go to definition
-      // definitionProvider: true,
+      // Go to definition
+      definitionProvider: true,
 
-      // TODO: Future enhancement - Enable document symbols
-      // documentSymbolProvider: true,
+      // Document symbols (outline)
+      documentSymbolProvider: true,
 
-      // TODO: Future enhancement - Enable folding
-      // foldingRangeProvider: true,
+      // Folding ranges
+      foldingRangeProvider: true,
     }
   };
 
@@ -159,16 +175,19 @@ function getDocumentSettings(resource: string): Thenable<ExoscriptSettings> {
 }
 
 /**
- * Document closed - clean up settings cache
+ * Document closed - clean up caches
  */
 documents.onDidClose((e) => {
   documentSettings.delete(e.document.uri);
+  documentParseCache.delete(e.document.uri);
 });
 
 /**
- * Document content changed - validate
+ * Document content changed - invalidate cache and validate
  */
 documents.onDidChangeContent((change) => {
+  // Invalidate parse cache
+  documentParseCache.delete(change.document.uri);
   validateTextDocument(change.document);
 });
 
@@ -191,125 +210,122 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-// TODO: Future enhancement - Completion handler
-// connection.onCompletion(
-//   (textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
-//     const document = documents.get(textDocumentPosition.textDocument.uri);
-//     if (!document) {
-//       return [];
-//     }
-//
-//     const text = document.getText();
-//     const position = textDocumentPosition.position;
-//
-//     // Get line content up to cursor
-//     const lines = text.split(/\r?\n/);
-//     const line = lines[position.line] || '';
-//     const linePrefix = line.substring(0, position.character);
-//
-//     const completions: CompletionItem[] = [];
-//
-//     // Tilde command completions
-//     if (linePrefix.trim() === '~' || linePrefix.trim().match(/^~\w*$/)) {
-//       completions.push(
-//         { label: 'if', kind: CompletionItemKind.Keyword, detail: 'Requirement condition' },
-//         { label: 'ifd', kind: CompletionItemKind.Keyword, detail: 'Requirement (show disabled)' },
-//         { label: 'set', kind: CompletionItemKind.Keyword, detail: 'Set variable/state' },
-//         { label: 'setif', kind: CompletionItemKind.Keyword, detail: 'Conditional set' },
-//         { label: 'call', kind: CompletionItemKind.Keyword, detail: 'Call function' },
-//         { label: 'callif', kind: CompletionItemKind.Keyword, detail: 'Conditional call' },
-//         { label: 'disabled', kind: CompletionItemKind.Keyword, detail: 'Disable file' },
-//         { label: 'once', kind: CompletionItemKind.Keyword, detail: 'One-time event' },
-//       );
-//     }
-//
-//     // Variable prefix completions
-//     if (linePrefix.match(/\b(var|mem|hog|skill|love|story)$/)) {
-//       completions.push(
-//         { label: 'var_', kind: CompletionItemKind.Variable, detail: 'Story-scoped variable' },
-//         { label: 'mem_', kind: CompletionItemKind.Variable, detail: 'Game-scoped memory' },
-//         { label: 'hog_', kind: CompletionItemKind.Variable, detail: 'Persistent groundhog variable' },
-//         { label: 'skill_', kind: CompletionItemKind.Variable, detail: 'Character skill' },
-//         { label: 'love_', kind: CompletionItemKind.Variable, detail: 'Relationship value' },
-//         { label: 'story_', kind: CompletionItemKind.Variable, detail: 'Story occurrence' },
-//       );
-//     }
-//
-//     // Bracket keyword completions
-//     if (linePrefix.match(/\[$/)) {
-//       completions.push(
-//         { label: 'if', kind: CompletionItemKind.Keyword },
-//         { label: 'else', kind: CompletionItemKind.Keyword },
-//         { label: 'elseif', kind: CompletionItemKind.Keyword },
-//         { label: 'endif', kind: CompletionItemKind.Keyword },
-//         { label: 'end', kind: CompletionItemKind.Keyword },
-//         { label: 'or', kind: CompletionItemKind.Keyword },
-//         { label: 'if random', kind: CompletionItemKind.Keyword },
-//         { label: '=', kind: CompletionItemKind.Operator, detail: 'Variable interpolation' },
-//       );
-//     }
-//
-//     return completions;
-//   }
-// );
+/**
+ * Completion handler
+ */
+connection.onCompletion(
+  (params: TextDocumentPositionParams): CompletionItem[] => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return [];
+    }
 
-// TODO: Future enhancement - Completion resolve handler
-// connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
-//   // Add documentation to completion items
-//   return item;
-// });
+    const parseResult = getParseResult(document);
+    return getCompletions(document, params.position, parseResult);
+  }
+);
 
-// TODO: Future enhancement - Hover handler
-// connection.onHover(
-//   (params: TextDocumentPositionParams): Hover | null => {
-//     const document = documents.get(params.textDocument.uri);
-//     if (!document) {
-//       return null;
-//     }
-//
-//     // Get word at position and provide hover info
-//     return null;
-//   }
-// );
+/**
+ * Hover handler
+ */
+connection.onHover(
+  (params: TextDocumentPositionParams): Hover | null => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return null;
+    }
 
-// TODO: Future enhancement - Definition handler
-// connection.onDefinition(
-//   (params: TextDocumentPositionParams): Definition | null => {
-//     const document = documents.get(params.textDocument.uri);
-//     if (!document) {
-//       return null;
-//     }
-//
-//     // Find definition of choice ID or jump target
-//     return null;
-//   }
-// );
+    const parseResult = getParseResult(document);
+    return getHover(document, params.position, parseResult);
+  }
+);
 
-// TODO: Future enhancement - Document symbols handler
-// connection.onDocumentSymbol(
-//   (params: { textDocument: { uri: string } }): DocumentSymbol[] => {
-//     const document = documents.get(params.textDocument.uri);
-//     if (!document) {
-//       return [];
-//     }
-//
-//     // Return story IDs and choice IDs as symbols
-//     return [];
-//   }
-// );
+/**
+ * Go to definition handler
+ */
+connection.onDefinition(
+  (params: TextDocumentPositionParams): Definition | null => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return null;
+    }
 
-// TODO: Future enhancement - Folding ranges handler
-// connection.onFoldingRanges(
-//   (params: { textDocument: { uri: string } }): FoldingRange[] => {
-//     const document = documents.get(params.textDocument.uri);
-//     if (!document) {
-//       return [];
-//     }
-//
-//     // Return folding ranges for stories and choices
-//     return [];
-//   }
-// );
+    const parseResult = getParseResult(document);
+    const position = params.position;
+
+    // Get line and check if we're on a jump target
+    const text = document.getText();
+    const lines = text.split(/\r?\n/);
+    const line = lines[position.line] || '';
+
+    // Check for jump syntax
+    const jumpMatch = line.trimStart().match(/^>{1,3}!?\s*(\w+)/);
+    if (jumpMatch) {
+      const target = jumpMatch[1];
+      const targetStartInLine = line.indexOf(target);
+      const targetEndInLine = targetStartInLine + target.length;
+
+      // Check if cursor is on the target
+      if (position.character >= targetStartInLine && position.character <= targetEndInLine) {
+        // Find the story containing this line
+        const story = findStoryAtLine(parseResult, position.line);
+        if (story) {
+          const choiceId = story.choiceIds.get(target);
+          if (choiceId) {
+            return Location.create(params.textDocument.uri, {
+              start: { line: choiceId.range.start.line, character: choiceId.range.start.character },
+              end: { line: choiceId.range.end.line, character: choiceId.range.end.character }
+            });
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+);
+
+/**
+ * Document symbols handler
+ */
+connection.onDocumentSymbol(
+  (params: { textDocument: { uri: string } }): DocumentSymbol[] => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return [];
+    }
+
+    const parseResult = getParseResult(document);
+    return getDocumentSymbols(parseResult);
+  }
+);
+
+/**
+ * Folding ranges handler
+ */
+connection.onFoldingRanges(
+  (params: { textDocument: { uri: string } }): FoldingRange[] => {
+    const document = documents.get(params.textDocument.uri);
+    if (!document) {
+      return [];
+    }
+
+    const parseResult = getParseResult(document);
+    return getFoldingRanges(document.getText(), parseResult);
+  }
+);
+
+/**
+ * Find the story that contains a given line
+ */
+function findStoryAtLine(parseResult: ParserResult, line: number): StoryNode | null {
+  for (const story of parseResult.document.stories) {
+    if (line >= story.range.start.line && line <= story.range.end.line) {
+      return story;
+    }
+  }
+  return null;
+}
 
 // Listen for document changes
 documents.listen(connection);

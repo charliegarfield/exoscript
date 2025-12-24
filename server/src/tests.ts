@@ -5,7 +5,13 @@
  */
 
 import { analyzeDiagnostics } from './diagnostics';
-import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
+import { parse } from './parser';
+import { getDocumentSymbols } from './symbols';
+import { getFoldingRanges } from './folding';
+import { getHover } from './hover';
+import { getCompletions } from './completion';
+import { Diagnostic, DiagnosticSeverity, SymbolKind, FoldingRangeKind } from 'vscode-languageserver';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 
 interface TestCase {
   name: string;
@@ -522,10 +528,368 @@ This is the intro text.
   },
 ];
 
+// ========== DOCUMENT SYMBOLS TESTS ==========
+
+function testDocumentSymbols(): { passed: number; failed: number; failures: string[] } {
+  console.log('\n--- Document Symbols Tests ---\n');
+  let passed = 0;
+  let failed = 0;
+  const failures: string[] = [];
+
+  // Test 1: Single story with choice IDs
+  {
+    const name = 'Document symbols - single story';
+    const code = `=== myStory
+* First choice
+  = firstId
+* Second choice
+  = secondId`;
+    const parseResult = parse(code);
+    const symbols = getDocumentSymbols(parseResult);
+
+    if (symbols.length === 1 && symbols[0].name === 'myStory' && symbols[0].kind === SymbolKind.Module) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected 1 story symbol named 'myStory', got ${symbols.length} symbols`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 2: Multiple stories
+  {
+    const name = 'Document symbols - multiple stories';
+    const code = `=== storyOne
+* Choice
+=== storyTwo
+* Another choice`;
+    const parseResult = parse(code);
+    const symbols = getDocumentSymbols(parseResult);
+
+    if (symbols.length === 2 && symbols[0].name === 'storyOne' && symbols[1].name === 'storyTwo') {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected 2 story symbols, got ${symbols.length}`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 3: Hidden choice ID
+  {
+    const name = 'Document symbols - hidden choice';
+    const code = `=== test
+*= hiddenChoice
+  Text`;
+    const parseResult = parse(code);
+    const symbols = getDocumentSymbols(parseResult);
+    const hasHiddenChoice = symbols[0]?.children?.some(c => c.name.includes('*='));
+
+    if (hasHiddenChoice) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected hidden choice symbol with '*='`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  return { passed, failed, failures };
+}
+
+// ========== FOLDING RANGES TESTS ==========
+
+function testFoldingRanges(): { passed: number; failed: number; failures: string[] } {
+  console.log('\n--- Folding Ranges Tests ---\n');
+  let passed = 0;
+  let failed = 0;
+  const failures: string[] = [];
+
+  // Test 1: Story folding
+  {
+    const name = 'Folding - story range';
+    const code = `=== myStory
+Line 1
+Line 2
+Line 3`;
+    const parseResult = parse(code);
+    const ranges = getFoldingRanges(code, parseResult);
+    const storyRange = ranges.find(r => r.startLine === 0);
+
+    if (storyRange && storyRange.endLine === 3) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected story range from line 0 to 3`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 2: Block comment folding
+  {
+    const name = 'Folding - block comment';
+    const code = `=== test
+/* comment
+   line 2
+   line 3 */
+text`;
+    const parseResult = parse(code);
+    const ranges = getFoldingRanges(code, parseResult);
+    const commentRange = ranges.find(r => r.kind === FoldingRangeKind.Comment);
+
+    if (commentRange && commentRange.startLine === 1 && commentRange.endLine === 3) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected comment range from line 1 to 3`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 3: [if]...[endif] folding
+  {
+    const name = 'Folding - bracket if block';
+    const code = `=== test
+[if condition]
+text line 1
+text line 2
+[endif]`;
+    const parseResult = parse(code);
+    const ranges = getFoldingRanges(code, parseResult);
+    const ifRange = ranges.find(r => r.startLine === 1 && r.kind === FoldingRangeKind.Region);
+
+    if (ifRange && ifRange.endLine === 4) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected [if] range from line 1 to 4, got: ${JSON.stringify(ranges)}`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  return { passed, failed, failures };
+}
+
+// ========== HOVER TESTS ==========
+
+function testHover(): { passed: number; failed: number; failures: string[] } {
+  console.log('\n--- Hover Tests ---\n');
+  let passed = 0;
+  let failed = 0;
+  const failures: string[] = [];
+
+  function createDoc(code: string): TextDocument {
+    return TextDocument.create('file:///test.exo', 'exoscript', 1, code);
+  }
+
+  // Test 1: Hover on tilde command
+  {
+    const name = 'Hover - tilde command ~if';
+    const code = `=== test
+~if age >= 10`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const hover = getHover(doc, { line: 1, character: 1 }, parseResult);
+
+    if (hover && hover.contents && JSON.stringify(hover.contents).includes('~if')) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected hover info for ~if`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 2: Hover on variable prefix
+  {
+    const name = 'Hover - variable prefix var_';
+    const code = `=== test
+~set var_something = true`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const hover = getHover(doc, { line: 1, character: 7 }, parseResult);
+
+    if (hover && hover.contents && JSON.stringify(hover.contents).includes('Story')) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected hover info about story-scoped variable`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 3: Hover on skill_ prefix
+  {
+    const name = 'Hover - variable prefix skill_';
+    const code = `=== test
+~if skill_combat >= 10`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const hover = getHover(doc, { line: 1, character: 8 }, parseResult);
+
+    if (hover && hover.contents && JSON.stringify(hover.contents).includes('Skill')) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected hover info about skill variable`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 4: Hover on jump target
+  {
+    const name = 'Hover - jump target defined';
+    const code = `=== test
+* Choice
+  = myTarget
+* Other
+  > myTarget`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const hover = getHover(doc, { line: 4, character: 5 }, parseResult);
+
+    if (hover && hover.contents && JSON.stringify(hover.contents).includes('line')) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected hover info showing definition line`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  return { passed, failed, failures };
+}
+
+// ========== COMPLETION TESTS ==========
+
+function testCompletion(): { passed: number; failed: number; failures: string[] } {
+  console.log('\n--- Completion Tests ---\n');
+  let passed = 0;
+  let failed = 0;
+  const failures: string[] = [];
+
+  function createDoc(code: string): TextDocument {
+    return TextDocument.create('file:///test.exo', 'exoscript', 1, code);
+  }
+
+  // Test 1: Tilde command completion
+  {
+    const name = 'Completion - tilde commands';
+    const code = `=== test
+~`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const completions = getCompletions(doc, { line: 1, character: 1 }, parseResult);
+    const hasIf = completions.some(c => c.label === 'if');
+    const hasSet = completions.some(c => c.label === 'set');
+
+    if (hasIf && hasSet) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected 'if' and 'set' in completions`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 2: Jump target completion
+  {
+    const name = 'Completion - jump targets';
+    const code = `=== test
+* Choice
+  = myChoice
+* Other
+  > `;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const completions = getCompletions(doc, { line: 4, character: 4 }, parseResult);
+    const hasMyChoice = completions.some(c => c.label === 'myChoice');
+    const hasStart = completions.some(c => c.label === 'start');
+
+    if (hasMyChoice && hasStart) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected 'myChoice' and 'start' in completions, got: ${completions.map(c => c.label).join(', ')}`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 3: Bracket keyword completion
+  {
+    const name = 'Completion - bracket keywords';
+    const code = `=== test
+[`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const completions = getCompletions(doc, { line: 1, character: 1 }, parseResult);
+    const hasIf = completions.some(c => c.label === 'if');
+    const hasEndif = completions.some(c => c.label === 'endif');
+
+    if (hasIf && hasEndif) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected 'if' and 'endif' in completions`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  // Test 4: Variable prefix completion
+  {
+    const name = 'Completion - variable prefixes';
+    const code = `=== test
+~set var`;
+    const doc = createDoc(code);
+    const parseResult = parse(code);
+    const completions = getCompletions(doc, { line: 1, character: 8 }, parseResult);
+    const hasVar = completions.some(c => c.label === 'var_');
+
+    if (hasVar) {
+      console.log(`✓ ${name}`);
+      passed++;
+    } else {
+      console.log(`✗ ${name}`);
+      console.log(`    Expected 'var_' in completions`);
+      failed++;
+      failures.push(name);
+    }
+  }
+
+  return { passed, failed, failures };
+}
+
 // ========== TEST RUNNER ==========
 
 function runTests(): void {
   console.log('=== Exoscript LSP Test Suite ===\n');
+  console.log('--- Diagnostic Tests ---\n');
 
   let passed = 0;
   let failed = 0;
@@ -583,9 +947,32 @@ function runTests(): void {
     }
   }
 
+  // Run additional feature tests
+  const symbolResults = testDocumentSymbols();
+  passed += symbolResults.passed;
+  failed += symbolResults.failed;
+  failures.push(...symbolResults.failures);
+
+  const foldingResults = testFoldingRanges();
+  passed += foldingResults.passed;
+  failed += foldingResults.failed;
+  failures.push(...foldingResults.failures);
+
+  const hoverResults = testHover();
+  passed += hoverResults.passed;
+  failed += hoverResults.failed;
+  failures.push(...hoverResults.failures);
+
+  const completionResults = testCompletion();
+  passed += completionResults.passed;
+  failed += completionResults.failed;
+  failures.push(...completionResults.failures);
+
+  const totalTests = testCases.length + 3 + 3 + 4 + 4; // diagnostics + symbols + folding + hover + completion
+
   console.log('\n=== Results ===');
-  console.log(`Passed: ${passed}/${testCases.length}`);
-  console.log(`Failed: ${failed}/${testCases.length}`);
+  console.log(`Passed: ${passed}/${totalTests}`);
+  console.log(`Failed: ${failed}/${totalTests}`);
 
   if (failures.length > 0) {
     console.log('\nFailed tests:');
