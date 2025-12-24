@@ -4,6 +4,22 @@ All notable changes to the "exoscript" extension will be documented in this file
 
 ## [Unreleased]
 
+## [1.0.0]
+
+- Added Language Server Protocol (LSP) support with real-time diagnostics
+- Syntax error detection:
+  - Invalid story headers
+  - Unknown or malformed tilde commands (~if, ~set, etc.)
+  - Unbalanced bracket expressions ([if]...[endif])
+  - Unclosed block comments
+  - Unbalanced parentheses in expressions
+- Semantic validation:
+  - Unknown jump targets
+  - Duplicate choice IDs
+  - Empty choice text warnings
+  - Unknown variable prefix hints
+- Added configurable `exoscript.maxNumberOfProblems` setting
+
 ## [0.0.1]
 
 - Initial release

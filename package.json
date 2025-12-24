@@ -2,19 +2,24 @@
     "name": "exoscript",
     "displayName": "Exoscript Support",
     "description": "Support for the Exoscript language from I Was a Teenage Exocolonist",
-    "version": "0.9.0",
+    "version": "1.0.0",
     "publisher": "CharlieGarfield",
     "repository": {
         "type": "git",
         "url": "https://github.com/charliegarfield/exoscript.git"
-    }, 
+    },
     "icon": "ExoIcon.png",
     "engines": {
         "vscode": "^1.63.0"
     },
     "categories": [
         "Programming Languages",
-        "Snippets"
+        "Snippets",
+        "Linters"
+    ],
+    "main": "./client/out/extension.js",
+    "activationEvents": [
+        "onLanguage:exoscript"
     ],
     "contributes": {
         "languages": [
@@ -45,9 +50,36 @@
                 "language": "exoscript",
                 "path": "./snippets/exoscript.json"
             }
-        ]
+        ],
+        "configuration": {
+            "type": "object",
+            "title": "Exoscript",
+            "properties": {
+                "exoscript.maxNumberOfProblems": {
+                    "scope": "resource",
+                    "type": "number",
+                    "default": 100,
+                    "description": "Maximum number of problems to report per file."
+                }
+            }
+        }
     },
-    "extensionDependencies": ["ms-dotnettools.vscode-dotnet-runtime"],
+    "scripts": {
+        "vscode:prepublish": "npm run build",
+        "build": "npm run build:client && npm run build:server",
+        "build:client": "cd client && npm run build",
+        "build:server": "cd server && npm run build",
+        "watch": "concurrently \"cd client && npm run watch\" \"cd server && npm run watch\"",
+        "test": "cd server && npm test",
+        "install:all": "npm install && cd client && npm install && cd ../server && npm install",
+        "postinstall": "cd client && npm install && cd ../server && npm install"
+    },
+    "devDependencies": {
+        "@semantic-release/github": "^8.0.4",
+        "@types/node": "^20.10.0",
+        "concurrently": "^8.2.2",
+        "typescript": "^5.3.0"
+    },
     "release": {
         "branches": "master",
         "verifyConditions": [
@@ -62,8 +94,5 @@
         "fail": [
             "@semantic-release/github"
         ]
-    },
-    "devDependencies": {
-        "@semantic-release/github": "^8.0.4"
     }
 }

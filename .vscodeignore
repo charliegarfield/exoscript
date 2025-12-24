@@ -1,5 +1,25 @@
 .vscode/**
 .vscode-test/**
 .gitignore
+.github/**
 vsc-extension-quickstart.md
 LanguageServer
+
+# Source files (only include compiled output)
+client/src/**
+server/src/**
+client/tsconfig.json
+server/tsconfig.json
+
+# Node modules are bundled separately
+client/node_modules/**
+server/node_modules/**
+
+# Development files
+*.ts
+!*.d.ts
+**/*.map
+
+# Test files
+test.ts
+*.test.ts
