@@ -51,6 +51,14 @@ A few edge cases can break syntax highlighitng at the moment
 
 - Added choiceid highlighting
 
+### 1.0.0
+
+- Added error catching and LSP
+
+### 1.1.0 
+
+- Minor bug fixes and improvements
+
 -----------------------------------------------------------------------------------------------------------
 
 **Enjoy!**
