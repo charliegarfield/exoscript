@@ -123,6 +123,7 @@ export class Lexer {
         return;
       }
       // Block comment on single line - treat as line comment
+      return;
     }
 
     // Line comment
