@@ -254,6 +254,13 @@ Some text`,
     expectedErrors: [],
   },
   {
+    name: 'Single-line block comment before story header',
+    code: `/* a single-line block comment */
+=== test
+Some text`,
+    expectedErrors: [],
+  },
+  {
     name: 'Unclosed block comment',
     code: `=== test
 /* This comment never closes

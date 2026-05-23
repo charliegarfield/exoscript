@@ -123,6 +123,12 @@ export class Lexer {
         return;
       }
       // Block comment on single line - treat as line comment
+      this.tokens.push({
+        type: TokenType.COMMENT_LINE,
+        value: line.substring(blockStart, blockEnd + 2),
+        range: this.makeRange(lineNum, blockStart, blockEnd + 2)
+      });
+      this.lineTypes.push(LineType.COMMENT);
       return;
     }
 
