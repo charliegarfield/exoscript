@@ -111,7 +111,8 @@ export interface StoryNode {
   requirements: TildeCommandNode[];
   mutations: TildeCommandNode[];
   choices: ChoiceNode[];
-  choiceIds: Map<string, ChoiceIdNode>;  // For jump target validation
+  jumps: JumpNode[];       // Story-level jumps (outside any choice)
+  choiceIds: Map<string, ChoiceIdNode>;  // Keyed by lowercased ID (engine is case-insensitive)
 }
 
 export interface ChoiceNode {
@@ -164,6 +165,7 @@ export const VARIABLE_PREFIXES = [
   'skill_',
   'love_',
   'story_',
+  'plot_',
   'call_',
 ] as const;
 

@@ -3,7 +3,10 @@
 .gitignore
 .github/**
 vsc-extension-quickstart.md
-LanguageServer
+
+# Copyrighted game content — must never ship in the VSIX
+Stories/**
+Exoscript Implementation/**
 
 # Source files (only include compiled output)
 client/src/**
@@ -11,14 +14,39 @@ server/src/**
 client/tsconfig.json
 server/tsconfig.json
 
-# Node modules are bundled separately
-client/node_modules/**
-server/node_modules/**
+# IMPORTANT: Both client and server need their node_modules to run!
+# Runtime deps kept: vscode-languageclient (+ minimatch, semver, balanced-match,
+# brace-expansion), vscode-languageserver, vscode-languageserver-textdocument,
+# vscode-jsonrpc, vscode-languageserver-protocol, vscode-languageserver-types.
+# Dev-only packages excluded below:
+client/node_modules/.bin/**
+client/node_modules/@types/**
+client/node_modules/typescript/**
+client/node_modules/undici-types/**
+server/node_modules/.bin/**
+server/node_modules/@cspotcode/**
+server/node_modules/@jridgewell/**
+server/node_modules/@tsconfig/**
+server/node_modules/@types/**
+server/node_modules/acorn/**
+server/node_modules/acorn-walk/**
+server/node_modules/arg/**
+server/node_modules/create-require/**
+server/node_modules/diff/**
+server/node_modules/make-error/**
+server/node_modules/ts-node/**
+server/node_modules/typescript/**
+server/node_modules/undici-types/**
+server/node_modules/v8-compile-cache-lib/**
+server/node_modules/yn/**
 
 # Development files
 *.ts
 !*.d.ts
 **/*.map
+**/*.tsbuildinfo
+**/.DS_Store
+**/CLAUDE.md
 
 # Test files
 test.ts

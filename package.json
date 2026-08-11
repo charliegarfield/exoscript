@@ -2,7 +2,7 @@
     "name": "exoscript",
     "displayName": "Exoscript Support",
     "description": "Support for the Exoscript language from I Was a Teenage Exocolonist",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "publisher": "CharlieGarfield",
     "repository": {
         "type": "git",
@@ -41,8 +41,8 @@
         "grammars": [
             {
                 "language": "exoscript",
-                "scopeName": "source.sample",
-                "path": "./syntaxes/sample.tmLanguage"
+                "scopeName": "source.exoscript",
+                "path": "./syntaxes/exoscript.tmLanguage"
             }
         ],
         "snippets": [
@@ -75,23 +75,32 @@
         "postinstall": "cd client && npm install && cd ../server && npm install"
     },
     "devDependencies": {
-        "@semantic-release/github": "^8.0.4",
+        "@semantic-release/github": "^11.0.0",
         "@types/node": "^20.10.0",
         "concurrently": "^8.2.2",
+        "semantic-release": "^24.0.0",
         "typescript": "^5.3.0"
     },
     "release": {
-        "branches": "master",
-        "verifyConditions": [
-            "@semantic-release/github"
+        "branches": [
+            "master"
         ],
-        "publish": [
-            "@semantic-release/github"
-        ],
-        "success": [
-            "@semantic-release/github"
-        ],
-        "fail": [
+        "plugins": [
+            [
+                "@semantic-release/commit-analyzer",
+                {
+                    "releaseRules": [
+                        { "type": "major", "release": "major" },
+                        { "type": "breaking", "release": "major" },
+                        { "type": "minor", "release": "minor" },
+                        { "type": "feat", "release": "minor" },
+                        { "type": "fix", "release": "patch" },
+                        { "type": "patch", "release": "patch" },
+                        { "type": "perf", "release": "patch" }
+                    ]
+                }
+            ],
+            "@semantic-release/release-notes-generator",
             "@semantic-release/github"
         ]
     }

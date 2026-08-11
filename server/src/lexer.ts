@@ -74,12 +74,11 @@ export class Lexer {
   }
 
   private tokenizeLine(lineNum: number): void {
-    const line = this.lines[lineNum];
-    const trimmed = line.trim();
+    const rawLine = this.lines[lineNum];
 
     // Handle block comment continuation
     if (this.inBlockComment) {
-      const endIdx = line.indexOf('*/');
+      const endIdx = rawLine.indexOf('*/');
       if (endIdx !== -1) {
         this.inBlockComment = false;
         this.blockCommentStart = null;
@@ -89,7 +88,7 @@ export class Lexer {
           range: this.makeRange(lineNum, endIdx, endIdx + 2)
         });
         // Process rest of line after comment
-        const restOfLine = line.substring(endIdx + 2);
+        const restOfLine = rawLine.substring(endIdx + 2);
         if (restOfLine.trim()) {
           this.tokenizeLineContent(lineNum, endIdx + 2, restOfLine);
         }
@@ -101,37 +100,56 @@ export class Lexer {
     }
 
     // Empty line
-    if (!trimmed) {
+    if (!rawLine.trim()) {
       this.lineTypes.push(LineType.EMPTY);
       return;
     }
 
-    // Check for block comment start
-    const blockStart = line.indexOf('/*');
-    if (blockStart !== -1) {
-      // Check if it closes on same line
-      const blockEnd = line.indexOf('*/', blockStart + 2);
-      if (blockEnd === -1) {
-        this.inBlockComment = true;
-        this.blockCommentStart = { line: lineNum, character: blockStart };
-        this.tokens.push({
-          type: TokenType.COMMENT_BLOCK_START,
-          value: '/*',
-          range: this.makeRange(lineNum, blockStart, blockStart + 2)
-        });
-        this.lineTypes.push(LineType.COMMENT);
-        return;
-      }
-      // Block comment on single line - treat as line comment
-    }
-
-    // Line comment
-    if (trimmed.startsWith('//')) {
+    // Full-line comment
+    if (rawLine.trim().startsWith('//')) {
       this.tokens.push({
         type: TokenType.COMMENT_LINE,
-        value: trimmed,
-        range: this.makeRange(lineNum, line.indexOf('//'), line.length)
+        value: rawLine.trim(),
+        range: this.makeRange(lineNum, rawLine.indexOf('//'), rawLine.length)
       });
+      this.lineTypes.push(LineType.COMMENT);
+      return;
+    }
+
+    // Blank out comments left-to-right so a `//` comment containing `/*` doesn't
+    // open a block comment, and trailing `// ...` never leaks into expressions.
+    // Indices are preserved so token ranges still map to the original line.
+    const chars = rawLine.split('');
+    let scan = 0;
+    while (scan < rawLine.length) {
+      if (rawLine.startsWith('//', scan) && (scan === 0 || /\s/.test(rawLine[scan - 1]))) {
+        for (let j = scan; j < rawLine.length; j++) chars[j] = ' ';
+        break;
+      }
+      if (rawLine.startsWith('/*', scan)) {
+        const blockEnd = rawLine.indexOf('*/', scan + 2);
+        if (blockEnd === -1) {
+          this.inBlockComment = true;
+          this.blockCommentStart = { line: lineNum, character: scan };
+          this.tokens.push({
+            type: TokenType.COMMENT_BLOCK_START,
+            value: '/*',
+            range: this.makeRange(lineNum, scan, scan + 2)
+          });
+          for (let j = scan; j < rawLine.length; j++) chars[j] = ' ';
+          break;
+        }
+        for (let j = scan; j < blockEnd + 2; j++) chars[j] = ' ';
+        scan = blockEnd + 2;
+        continue;
+      }
+      scan++;
+    }
+    const line = chars.join('');
+    const trimmed = line.trim();
+
+    // Line contained only comments
+    if (!trimmed) {
       this.lineTypes.push(LineType.COMMENT);
       return;
     }
@@ -253,8 +271,8 @@ export class Lexer {
       return;
     }
 
-    // Choice with optional ID: * choice text, *= hiddenChoice, ** nested choice
-    const choiceMatch = trimmed.match(/^(\*+)(=?)\s*(.*)$/);
+    // Choice with optional ID: * choice text, *= hiddenChoice, * =hiddenChoice, ** nested choice
+    const choiceMatch = trimmed.match(/^(\*+)\s*(=?)\s*(.*)$/);
     if (choiceMatch) {
       const stars = choiceMatch[1];
       const hasId = choiceMatch[2] === '=';
@@ -320,16 +338,13 @@ export class Lexer {
       return;
     }
 
-    // Regular text - also check for bracket expressions within
+    // Regular text
     this.tokens.push({
       type: TokenType.TEXT,
       value: line,
       range: this.makeRange(lineNum, 0, line.length)
     });
     this.lineTypes.push(LineType.TEXT);
-
-    // Validate bracket expressions in text
-    this.validateBracketExpressions(line, lineNum);
   }
 
   private tokenizeLineContent(lineNum: number, startOffset: number, content: string): void {
@@ -457,56 +472,6 @@ export class Lexer {
     }
   }
 
-  private validateBracketExpressions(line: string, lineNum: number): void {
-    // Find all bracket expressions in the line
-    const bracketRegex = /\[([^\]]*)\]/g;
-    let match;
-
-    while ((match = bracketRegex.exec(line)) !== null) {
-      const content = match[1].trim();
-      const startIdx = match.index;
-      const endIdx = match.index + match[0].length;
-
-      // Check for valid bracket keywords
-      if (content.startsWith('if ') || content === 'if') {
-        // [if condition] - valid start
-        continue;
-      }
-      if (content === 'else' || content.startsWith('else ')) {
-        // [else] or [else if] or [else random] - valid
-        continue;
-      }
-      if (content === 'elseif' || content.startsWith('elseif ')) {
-        // [elseif condition] - valid
-        continue;
-      }
-      if (content === 'endif' || content === 'end') {
-        // [endif] or [end] - valid
-        continue;
-      }
-      if (content === 'or' || content === '|' || content.startsWith('or ')) {
-        // [or] or [|] - valid for random blocks
-        continue;
-      }
-      if (content.startsWith('=')) {
-        // [=variable] or [=call_func()] - variable interpolation
-        continue;
-      }
-
-      // Unknown bracket expression - could be text or error
-      // Don't flag as error since [text] is sometimes just literal text
-    }
-
-    // Check for unbalanced brackets in the line (simple check)
-    let bracketCount = 0;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '[') bracketCount++;
-      if (line[i] === ']') bracketCount--;
-    }
-    // Note: We don't error on single-line unbalanced brackets because
-    // [if] and [endif] are on different lines. This is handled by the parser.
-  }
-
   private makeRange(line: number, start: number, end: number): Range {
     return {
       start: { line, character: start },
@@ -521,4 +486,45 @@ export class Lexer {
 export function tokenize(text: string): LexerResult {
   const lexer = new Lexer(text);
   return lexer.tokenize();
+}
+
+/**
+ * Blank out comments in a single line while preserving character indices.
+ * Handles line comments (only when at line start or preceded by whitespace,
+ * so URLs like http:// survive), single-line block comment segments, and
+ * multi-line block comment state carried via `inBlockComment`.
+ */
+export function stripComments(
+  line: string,
+  inBlockComment: boolean
+): { code: string; inBlockComment: boolean } {
+  const chars = line.split('');
+  let i = 0;
+  while (i < line.length) {
+    if (inBlockComment) {
+      if (line.startsWith('*/', i)) {
+        chars[i] = ' ';
+        chars[i + 1] = ' ';
+        i += 2;
+        inBlockComment = false;
+      } else {
+        chars[i] = ' ';
+        i++;
+      }
+      continue;
+    }
+    if (line.startsWith('//', i) && (i === 0 || /\s/.test(line[i - 1]))) {
+      for (let j = i; j < line.length; j++) chars[j] = ' ';
+      break;
+    }
+    if (line.startsWith('/*', i)) {
+      chars[i] = ' ';
+      chars[i + 1] = ' ';
+      i += 2;
+      inBlockComment = true;
+      continue;
+    }
+    i++;
+  }
+  return { code: chars.join(''), inBlockComment };
 }

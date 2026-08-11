@@ -2,8 +2,7 @@
 
 ## Exoscript for VSCode
 
-This is an extension to bring the exoscript language from the wonderful game I Was a Teenage Exocolonist to VSCode. As of now, it contains syntax highlighting and snippets, with intellisense on the way.
-
+This is an extension to bring the exoscript language from the wonderful game I Was a Teenage Exocolonist to VSCode. It contains syntax highlighting, snippets, and intelliSense!
 ## Features
 
 - Syntax highlighting
@@ -58,6 +57,9 @@ A few edge cases can break syntax highlighitng at the moment
 ### 1.1.0 
 
 - Minor bug fixes and improvements
+
+### 1.2.0
+- Actually getting LSP to work hopefully?
 
 -----------------------------------------------------------------------------------------------------------
 

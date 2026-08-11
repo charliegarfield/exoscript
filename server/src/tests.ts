@@ -190,6 +190,20 @@ Option two
     expectedErrors: [],
   },
   {
+    name: 'Valid inline random syntax',
+    code: `=== test
+* A choice
+  She says [if random : "hello" | "hi" | "hey"]`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Valid inline conditional syntax',
+    code: `=== test
+* A choice
+  She says [if var_happy : "I'm happy!" | "I'm sad..."]`,
+    expectedErrors: [],
+  },
+  {
     name: 'Valid variable interpolation',
     code: `=== test
 Hello [=var_name], how are you?`,
@@ -254,6 +268,20 @@ Some text`,
     expectedErrors: [],
   },
   {
+    name: 'Single-line block comment before story header',
+    code: `/* a single-line block comment */
+=== test
+Some text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Code with trailing single-line block comment still parses',
+    code: `=== test
+~if age >= 10 /* inline note */
+Some text`,
+    expectedErrors: [],
+  },
+  {
     name: 'Unclosed block comment',
     code: `=== test
 /* This comment never closes
@@ -285,6 +313,13 @@ Some text`,
     expectedErrors: [],
   },
   {
+    name: 'Nested choice without parent warns',
+    code: `=== test
+** Orphaned nested choice
+  Some text`,
+    expectedErrors: ['has no parent'],
+  },
+  {
     name: 'Valid hidden choice',
     code: `=== test
 *= hiddenChoice
@@ -292,11 +327,12 @@ Some text`,
     expectedErrors: [],
   },
   {
-    name: 'Empty choice text',
+    name: 'Blank choice text is a valid hidden choice',
     code: `=== test
 *
+  = hugMom
   Result text`,
-    expectedErrors: ['Empty choice text'],
+    expectedErrors: [],
   },
   {
     name: 'Hidden choice without ID',
@@ -421,10 +457,39 @@ Some text`,
     expectedErrors: [],
   },
   {
-    name: 'Unknown variable prefix',
+    name: 'Misspelled variable prefix (near-miss)',
+    code: `=== test
+~if mme_variable = true`,
+    expectedErrors: ['Did you mean mem_'],
+  },
+  {
+    name: 'Unrecognized underscored word is not flagged (likely a value)',
     code: `=== test
 ~if weird_variable = true`,
-    expectedErrors: ['Unknown variable prefix'],
+    expectedErrors: [],
+  },
+  {
+    name: 'Enum value on right-hand side is not flagged',
+    code: `=== test
+~if chara = high_anemone
+~set right = cal_angry`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Special set target - portrait position',
+    code: `=== test
+~set left = rex_sad
+~set midleft = anemone_happy
+~set right = cal_angry`,
+    expectedErrors: [],  // Portrait positions can have any value
+  },
+  {
+    name: 'Special set target - background',
+    code: `=== test
+~set bg = destroyed
+~set effect = fadeToBlack
+~set speaker = nomi`,
+    expectedErrors: [],  // UI targets can have any value
   },
 
   // ========== OPERATOR TESTS ==========
@@ -453,6 +518,119 @@ Some text`,
     expectedErrors: ['Space in operator'],
   },
 
+  // ========== REGRESSION TESTS (validated against real game scripts) ==========
+  {
+    name: 'Inline ternary [if cond ? a : b] is self-contained',
+    code: `=== test
+[if !var_false ? This is true! : This is false]
+Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Inline ternary [if cond ? a] is self-contained',
+    code: `=== test
+[if !var_false ? This is true and that's it!]
+Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Story-level jump (outside any choice) is valid',
+    code: `=== test
+Some narrative text.
+>! snippet_momIntro`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Story-level jump target is still validated',
+    code: `=== test
+Some narrative text.
+> nowhere`,
+    expectedErrors: ['Unknown jump target'],
+  },
+  {
+    name: 'Jump targets are case-insensitive',
+    code: `=== test
+* Choice
+  > gohome
+*= goHome
+  Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Conditional jump with flexible spacing validates targets',
+    code: `=== test
+* Choice
+  = targetA
+* Other
+  > if mem_x ? targetA : end`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Conditional jump flags unknown target',
+    code: `=== test
+* Choice
+  > if mem_x ? nowhere : end`,
+    expectedErrors: ['Unknown jump target: nowhere'],
+  },
+  {
+    name: 'Line comment containing /* does not open a block comment',
+    code: `=== test
+// note: /* this is not a block comment
+Some text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Trailing // comment is not part of the expression',
+    code: `=== test
+~if age >= 10 // check age (young
+Some text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Commented-out code is not validated',
+    code: `=== test
+/*
+~sett var_x = 1
+*/
+Some text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Nested hidden choice (**=) does not warn with a parent',
+    code: `=== test
+* Parent choice
+  ** Nested choice
+    > confessLove
+  **= confessLove
+    Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Duplicate story ID warns',
+    code: `=== sameStory
+Text one
+=== sameStory
+Text two`,
+    expectedErrors: ['Duplicate story ID'],
+  },
+  {
+    name: '~disabled after banner comments still detected',
+    code: `//=========================
+//=========================
+//=========================
+//=========================
+//=========================
+//=========================
+//=========================
+//=========================
+//=========================
+//=========================
+~disabled
+=== test
+Text`,
+    expectedErrors: ['disabled'],  // Info message about disabled, no misplaced warning
+  },
+
   // ========== PAGE BREAK TESTS ==========
   {
     name: 'Valid page break',
@@ -466,11 +644,11 @@ Some text`,
 
   // ========== CONTENT BEFORE STORY TESTS ==========
   {
-    name: 'Content before story header',
+    name: 'Content before story header is valid',
     code: `This text comes before any story
 === test
 Valid content`,
-    expectedErrors: ['Content found before story header'],
+    expectedErrors: [],  // Content before story is valid (metadata, comments, etc.)
   },
 
   // ========== COMPLEX/COMBINED TESTS ==========
@@ -486,8 +664,7 @@ No endif
     expectedErrors: [
       'Unbalanced parentheses',
       'Unknown tilde command',
-      'Unclosed [if]',
-      'Empty choice text'
+      'Unclosed [if]'
     ],
   },
   {

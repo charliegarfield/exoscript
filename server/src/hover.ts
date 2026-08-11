@@ -81,6 +81,10 @@ const PREFIX_DESCRIPTIONS: Record<string, { name: string; description: string }>
     name: 'Story Flag',
     description: 'Story occurrence flag. Tracks whether a story event has happened.'
   },
+  'plot_': {
+    name: 'Plot Variable',
+    description: 'Tracks plot progression.'
+  },
   'call_': {
     name: 'Function Call',
     description: 'Calls a game function and returns its value.'
@@ -149,37 +153,48 @@ export function getHover(
     }
   }
 
-  // Check for bracket keywords
-  const bracketMatch = line.substring(0, position.character + 10).match(/\[(\w+)/);
-  if (bracketMatch && position.character >= line.indexOf('[' + bracketMatch[1])) {
-    const keyword = bracketMatch[1].toLowerCase();
-    if (BRACKET_DESCRIPTIONS[keyword]) {
-      return createHover(
-        `**[${keyword}]**\n\n${BRACKET_DESCRIPTIONS[keyword]}`
-      );
+  // Check for bracket keywords - use the bracket expression containing the cursor
+  const bracketRegex = /\[\s*(\w+)[^\]]*\]?/g;
+  let bracketMatch;
+  while ((bracketMatch = bracketRegex.exec(line)) !== null) {
+    const start = bracketMatch.index;
+    const end = bracketMatch.index + bracketMatch[0].length;
+    if (position.character >= start && position.character <= end) {
+      const keyword = bracketMatch[1].toLowerCase();
+      if (BRACKET_DESCRIPTIONS[keyword] && position.character <= line.indexOf(bracketMatch[1], start) + bracketMatch[1].length) {
+        return createHover(
+          `**[${keyword}]**\n\n${BRACKET_DESCRIPTIONS[keyword]}`
+        );
+      }
+      break;
     }
   }
 
-  // Check for jump target
-  const jumpMatch = line.trimStart().match(/^>{1,3}!?\s*(\w+)/);
-  if (jumpMatch && word === jumpMatch[1]) {
-    const target = jumpMatch[1];
+  // Check for jump targets - covers simple jumps and both branches of
+  // conditional jumps (> if cond ? target1 : target2)
+  const trimmedLine = line.trimStart();
+  if (trimmedLine.startsWith('>')) {
     const story = findStoryAtLine(parseResult, position.line);
-
     if (story) {
-      const choiceId = story.choiceIds.get(target);
+      // Lookup is case-insensitive, matching the engine
+      const choiceId = story.choiceIds.get(word.toLowerCase());
       if (choiceId) {
         const lineNum = choiceId.range.start.line + 1;
         return createHover(
-          `**Jump Target**: \`${target}\`\n\n` +
+          `**Jump Target**: \`${word}\`\n\n` +
           `Defined at line ${lineNum}` +
           (choiceId.isHidden ? ' (hidden choice)' : '')
         );
-      } else if (isSpecialTarget(target)) {
-        return createHover(getSpecialTargetDescription(target));
-      } else {
+      }
+      if (isSpecialTarget(word)) {
+        return createHover(getSpecialTargetDescription(word));
+      }
+      // Only report "unknown" for the target of a simple jump; words in a
+      // conditional jump's condition are not targets
+      const simpleJump = trimmedLine.match(/^>{1,3}!?\s*(\w+)\s*$/);
+      if (simpleJump && word === simpleJump[1]) {
         return createHover(
-          `**Jump Target**: \`${target}\`\n\n` +
+          `**Jump Target**: \`${word}\`\n\n` +
           `⚠️ Unknown target - not defined in this story`
         );
       }

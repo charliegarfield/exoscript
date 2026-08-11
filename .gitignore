@@ -7,3 +7,6 @@ client/server
 .vscode-test
 *.vsix
 exodata
+*.tsbuildinfo
+Stories/
+Exoscript Implementation/

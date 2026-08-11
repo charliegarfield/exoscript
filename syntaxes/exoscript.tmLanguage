@@ -20,7 +20,7 @@
     </dict>
    </array>
   <key>scopeName</key>
-  <string>source.sample</string>
+  <string>source.exoscript</string>
   <key>uuid</key>
   <string></string>
   <key>repository</key>
@@ -37,13 +37,13 @@
           <key>match</key>
           <string>((\s*?)-(\s*?)$)</string>
           <key>name</key>
-          <string>keyword punctuation.sample</string>
+          <string>keyword punctuation.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(====(=+))|(/\*(.*?)$|//(.*?)$)$</string>
           <key>name</key>
-          <string>comment.line.sample</string>
+          <string>comment.line.exoscript</string>
         </dict>
         <dict>
           <key>include</key>
@@ -79,7 +79,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>patterns</key>
@@ -96,7 +96,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>comment.line.sample</string>
+              <string>comment.line.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -110,19 +110,19 @@
           <key>match</key>
           <string>(insert|replace)</string>
           <key>name</key>
-          <string>keyword.control.sample</string>
+          <string>keyword.control.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(\|)</string>
           <key>name</key>
-          <string>keyword punctuation.sample</string>
+          <string>keyword punctuation.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(\&gt;)</string>
           <key>name</key>
-          <string>variable.language.sample</string>
+          <string>variable.language.exoscript</string>
         </dict>
         <dict>
           <key>include</key>
@@ -154,7 +154,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>patterns</key>
@@ -171,7 +171,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -183,7 +183,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>patterns</key>
@@ -200,7 +200,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -214,13 +214,13 @@
           <key>match</key>
           <string>(\|)</string>
           <key>name</key>
-          <string>keyword punctuation.sample</string>
+          <string>keyword punctuation.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(^[\|])</string>
           <key>name</key>
-          <string>text source.sample</string>
+          <string>text source.exoscript</string>
         </dict>
        </array>
     </dict>
@@ -248,13 +248,13 @@
           <key>match</key>
           <string>(and|call|else|end|elseif|if|ifd|or|random|set|setif)</string>
           <key>name</key>
-          <string>keyword.control.sample</string>
+          <string>keyword.control.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>([^\x{0028}A-Za-z\x{00c0}-\x{00ff}\x{0029}]\\d+|true|false|none|null|((\\+|-)\\d+))</string>
           <key>name</key>
-          <string>constant.sample</string>
+          <string>constant.exoscript</string>
         </dict>
        </array>
     </dict>
@@ -270,7 +270,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>patterns</key>
@@ -287,7 +287,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -305,11 +305,11 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword.operator.sample</string>
+              <string>keyword.operator.exoscript</string>
             </dict>
           </dict>
           <key>contentName</key>
-          <string>text source.sample</string>
+          <string>text source.exoscript</string>
           <key>end</key>
           <string>(.*?$)</string>
           <key>endCaptures</key>
@@ -317,7 +317,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>variable.parameter.sample</string>
+              <string>variable.parameter.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -329,11 +329,11 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>contentName</key>
-          <string>text source.sample</string>
+          <string>text source.exoscript</string>
           <key>end</key>
           <string>(.*?$)</string>
           <key>endCaptures</key>
@@ -341,7 +341,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>variable.parameter.sample</string>
+              <string>variable.parameter.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -353,11 +353,11 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>contentName</key>
-          <string>text source.sample</string>
+          <string>text source.exoscript</string>
           <key>end</key>
           <string>(.*?$)</string>
           <key>endCaptures</key>
@@ -365,7 +365,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>variable.parameter.sample</string>
+              <string>variable.parameter.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -377,11 +377,11 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>contentName</key>
-          <string>text source.sample</string>
+          <string>text source.exoscript</string>
           <key>end</key>
           <string>(.*?$)</string>
           <key>endCaptures</key>
@@ -389,7 +389,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>variable.parameter.sample</string>
+              <string>variable.parameter.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -409,25 +409,25 @@
           <key>match</key>
           <string>((?&lt;![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}])(true|false|none|null)(?![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}]))</string>
           <key>name</key>
-          <string>constant.sample</string>
+          <string>constant.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(&amp;&amp;|\+\+|\+|--|-|&gt;!|!=|=|&lt;|&gt;|&lt;=|&gt;=|%|&amp;|\?|:|\|\|)</string>
           <key>name</key>
-          <string>keyword.operator.sample</string>
+          <string>keyword.operator.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(\!)</string>
           <key>name</key>
-          <string>keyword.operator.sample</string>
+          <string>keyword.operator.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(?&lt;![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}])([0-9]+)(?![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}])</string>
           <key>name</key>
-          <string>constant.sample</string>
+          <string>constant.exoscript</string>
         </dict>
        </array>
     </dict>
@@ -439,7 +439,7 @@
           <key>match</key>
           <string>((?&lt;![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}])([A-Za-z\x{00c0}-\x{00ff}_\x{0024}]([A-Za-z\x{00c0}-\x{00ff}_\x{0024}0-9])+)(?![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}]))</string>
           <key>name</key>
-          <string>variable.language.sample</string>
+          <string>variable.language.exoscript</string>
         </dict>
        </array>
     </dict>
@@ -465,11 +465,11 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>contentName</key>
-          <string>text source.sample</string>
+          <string>text source.exoscript</string>
           <key>end</key>
           <string>((?&lt;![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}])([a-zA-Z_\x{0024}]([A-Za-z\x{00c0}-\x{00ff}_\x{0024}0-9])+)(?![A-Za-z\x{00c0}-\x{00d6}\x{00d8}-\x{00f6}\x{00f8}-\x{00ff}]))</string>
           <key>endCaptures</key>
@@ -477,7 +477,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>entity.name.class.sample</string>
+              <string>entity.name.class.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -501,7 +501,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>keyword punctuation.sample</string>
+              <string>keyword punctuation.exoscript</string>
             </dict>
           </dict>
           <key>patterns</key>
@@ -518,7 +518,7 @@
             <key>1</key>
             <dict>
               <key>name</key>
-              <string>comment.line.sample</string>
+              <string>comment.line.exoscript</string>
             </dict>
           </dict>
         </dict>
@@ -532,7 +532,7 @@
           <key>match</key>
           <string>(ifd|if|setif|set|call)</string>
           <key>name</key>
-          <string>keyword.control.sample</string>
+          <string>keyword.control.exoscript</string>
         </dict>
         <dict>
           <key>include</key>
@@ -566,13 +566,13 @@
           <key>match</key>
           <string>([a-zA-Z_\x{0024}]([a-zA-Z_\x{0024}0-9])+)</string>
           <key>name</key>
-          <string>variable.language.sample</string>
+          <string>variable.language.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(\|)</string>
           <key>name</key>
-          <string>keyword punctuation.sample</string>
+          <string>keyword punctuation.exoscript</string>
         </dict>
        </array>
     </dict>
@@ -596,19 +596,19 @@
           <key>match</key>
           <string>(var_(.*?)(?=\]|\s))</string>
           <key>name</key>
-          <string>variable.parameter.sample</string>
+          <string>variable.parameter.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(mem_(.*?)(?=\]|\s))</string>
           <key>name</key>
-          <string>variable.parameter.sample</string>
+          <string>variable.parameter.exoscript</string>
         </dict>
         <dict>
           <key>match</key>
           <string>(hog_(.*?)(?=\]|\s))</string>
           <key>name</key>
-          <string>variable.parameter.sample</string>
+          <string>variable.parameter.exoscript</string>
         </dict>
        </array>
     </dict>

@@ -11,18 +11,20 @@ import {
   Range as LSPRange,
 } from 'vscode-languageserver';
 
-import { ParseError, Range, DocumentNode } from './types';
-import { parse, validateBrackets } from './parser';
+import { ParseError, Range, VARIABLE_PREFIXES } from './types';
+import { parse, validateBrackets, ParserResult } from './parser';
+import { stripComments } from './lexer';
 
 /**
- * Analyze a document and return LSP diagnostics
+ * Analyze a document and return LSP diagnostics.
+ * Pass a cached ParserResult to avoid re-parsing the document.
  */
-export function analyzeDiagnostics(text: string): Diagnostic[] {
+export function analyzeDiagnostics(text: string, cachedParse?: ParserResult): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
 
   try {
-    // Parse the document
-    const parseResult = parse(text);
+    // Parse the document (or reuse the caller's parse result)
+    const parseResult = cachedParse ?? parse(text);
 
     // Convert parser errors to LSP diagnostics
     for (const error of parseResult.errors) {
@@ -124,9 +126,13 @@ function getSeverity(severity: ParseError['severity']): DiagnosticSeverity {
  */
 function additionalValidation(text: string, diagnostics: Diagnostic[]): void {
   const lines = text.split(/\r?\n/);
+  let inBlockComment = false;
 
   for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    const line = lines[lineNum];
+    // Strip comments so commented-out code isn't validated
+    const stripped = stripComments(lines[lineNum], inBlockComment);
+    inBlockComment = stripped.inBlockComment;
+    const line = stripped.code;
     const trimmed = line.trim();
 
     // Check for common mistakes
@@ -164,38 +170,7 @@ function additionalValidation(text: string, diagnostics: Diagnostic[]): void {
       }
     }
 
-    // 2. Check for mismatched quotes in text (simple check)
-    const quoteCount = (line.match(/"/g) || []).length;
-    if (quoteCount % 2 !== 0) {
-      // Could be intentional (line continues), but flag as hint
-      diagnostics.push({
-        severity: DiagnosticSeverity.Hint,
-        range: {
-          start: { line: lineNum, character: 0 },
-          end: { line: lineNum, character: line.length }
-        },
-        message: 'Unmatched quote - intentional if dialogue continues',
-        source: 'exoscript',
-        code: 'unmatched-quote'
-      });
-    }
-
-    // 3. Check for empty choices
-    const choiceMatch = trimmed.match(/^(\*+)\s*$/);
-    if (choiceMatch) {
-      diagnostics.push({
-        severity: DiagnosticSeverity.Warning,
-        range: {
-          start: { line: lineNum, character: line.indexOf('*') },
-          end: { line: lineNum, character: line.length }
-        },
-        message: 'Empty choice text - use *= for hidden choices',
-        source: 'exoscript',
-        code: 'empty-choice'
-      });
-    }
-
-    // 4. Check for story header without ID
+    // 2. Check for story header without ID
     if (trimmed === '===') {
       diagnostics.push({
         severity: DiagnosticSeverity.Error,
@@ -209,35 +184,42 @@ function additionalValidation(text: string, diagnostics: Diagnostic[]): void {
       });
     }
 
-    // 5. Check for invalid variable prefixes in ~set/~if
+    // 4. Check for likely-misspelled variable prefixes in ~set/~if.
+    // Underscored words are often plain enum VALUES (e.g. `~if chara = high_anemone`),
+    // so only flag a prefix when it's one edit away from a real one - a probable typo.
     if (tildeMatch && ['if', 'ifd', 'set', 'setif'].includes(tildeMatch[1].toLowerCase())) {
-      const varMatch = line.match(/\b([a-z]+_\w+)\b/g);
-      if (varMatch) {
-        const validPrefixes = ['var_', 'mem_', 'hog_', 'skill_', 'love_', 'story_', 'call_', 'plot_'];
-        for (const v of varMatch) {
-          const prefix = v.substring(0, v.indexOf('_') + 1);
-          if (v.includes('_') && !validPrefixes.includes(prefix)) {
-            // Check if it's a known special variable type
-            const knownTypes = ['age', 'season', 'month', 'job', 'location', 'chara', 'repeat', 'random', 'mapspot', 'biome', 'status', 'once', 'first', 'bg', 'left', 'right', 'midleft', 'midright', 'speaker', 'sprite'];
-            const beforeUnderscore = v.split('_')[0];
-            if (!knownTypes.includes(beforeUnderscore)) {
-              diagnostics.push({
-                severity: DiagnosticSeverity.Hint,
-                range: {
-                  start: { line: lineNum, character: line.indexOf(v) },
-                  end: { line: lineNum, character: line.indexOf(v) + v.length }
-                },
-                message: `Unknown variable prefix: ${prefix}. Common prefixes: var_, mem_, hog_, skill_, love_, story_`,
-                source: 'exoscript',
-                code: 'unknown-prefix'
-              });
-            }
-          }
+      const validPrefixes = VARIABLE_PREFIXES.map(p => p.slice(0, -1));
+      const varRegex = /\b([a-z]+)_\w+\b/g;
+      let varMatch;
+      while ((varMatch = varRegex.exec(line)) !== null) {
+        const prefix = varMatch[1];
+        if (validPrefixes.includes(prefix)) {
+          continue;
+        }
+        // Words on the right of an operator are values, and words after ( or ,
+        // are function arguments (e.g. `~set right = cal_angry`,
+        // `call_seasonsSinceStory(hug_rex)`) - not variables
+        const before = line.substring(0, varMatch.index).trimEnd();
+        if (/[=<>+\-(,]$/.test(before)) {
+          continue;
+        }
+        const nearMiss = validPrefixes.find(p => editDistanceIsOne(prefix, p));
+        if (nearMiss) {
+          diagnostics.push({
+            severity: DiagnosticSeverity.Hint,
+            range: {
+              start: { line: lineNum, character: varMatch.index },
+              end: { line: lineNum, character: varMatch.index + varMatch[0].length }
+            },
+            message: `Unknown variable prefix: ${prefix}_. Did you mean ${nearMiss}_?`,
+            source: 'exoscript',
+            code: 'unknown-prefix'
+          });
         }
       }
     }
 
-    // 6. Check for suspicious operator usage
+    // 5. Check for suspicious operator usage
     if (tildeMatch && ['if', 'ifd'].includes(tildeMatch[1].toLowerCase())) {
       // Check for single = when == might be intended (but = is valid in Exoscript)
       // Check for common operator mistakes
@@ -271,41 +253,41 @@ function additionalValidation(text: string, diagnostics: Diagnostic[]): void {
   }
 }
 
-// TODO: Future enhancement - Completion provider
-// export function getCompletions(text: string, position: Position): CompletionItem[] {
-//   // Keywords: if, ifd, set, setif, call, callif, disabled, once
-//   // Variable prefixes: var_, mem_, hog_, skill_, love_, story_
-//   // Choice IDs from current document
-//   // Operators: =, !=, >, <, >=, <=, &&, ||, and, or
-//   return [];
-// }
-
-// TODO: Future enhancement - Hover provider
-// export function getHoverInfo(text: string, position: Position): Hover | null {
-//   // Show variable type hints
-//   // Show jump target locations
-//   // Show command documentation
-//   return null;
-// }
-
-// TODO: Future enhancement - Go to definition
-// export function getDefinition(text: string, position: Position): Location | null {
-//   // Navigate to choice ID definitions
-//   // Navigate to story headers
-//   return null;
-// }
-
-// TODO: Future enhancement - Document symbols
-// export function getDocumentSymbols(text: string): DocumentSymbol[] {
-//   // List all story IDs
-//   // List all choice IDs
-//   return [];
-// }
-
-// TODO: Future enhancement - Folding ranges
-// export function getFoldingRanges(text: string): FoldingRange[] {
-//   // Fold story blocks
-//   // Fold choice blocks
-//   // Fold [if]...[endif] blocks
-//   return [];
-// }
+/**
+ * True if a and b are exactly one edit apart (insert, delete, substitute,
+ * or adjacent transposition) - used to spot probable prefix typos.
+ */
+function editDistanceIsOne(a: string, b: string): boolean {
+  if (a === b) {
+    return false;
+  }
+  const lenDiff = Math.abs(a.length - b.length);
+  if (lenDiff > 1) {
+    return false;
+  }
+  if (lenDiff === 1) {
+    // Insertion/deletion: shorter must match longer with one char skipped
+    const [short, long] = a.length < b.length ? [a, b] : [b, a];
+    for (let i = 0; i < long.length; i++) {
+      if (short === long.slice(0, i) + long.slice(i + 1)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  // Same length: substitution of one char, or one adjacent transposition
+  let firstDiff = -1;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      if (firstDiff === -1) {
+        firstDiff = i;
+      } else if (firstDiff === i - 1 && a[i] === b[firstDiff] && a[firstDiff] === b[i]) {
+        // Transposition - rest must match
+        return a.slice(i + 1) === b.slice(i + 1);
+      } else {
+        return false;
+      }
+    }
+  }
+  return firstDiff !== -1;
+}

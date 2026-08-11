@@ -9,8 +9,9 @@ import {
   FoldingRangeKind,
 } from 'vscode-languageserver/node';
 
-import { StoryNode, ChoiceNode } from './types';
+import { ChoiceNode } from './types';
 import { ParserResult } from './parser';
+import { stripComments } from './lexer';
 
 /**
  * Get folding ranges for an Exoscript document
@@ -84,8 +85,13 @@ function addBlockCommentRanges(lines: string[], ranges: FoldingRange[]): void {
     const line = lines[i];
 
     if (!inBlockComment) {
+      // Ignore /* that sits inside a // line comment
+      const lineCommentMatch = line.match(/(^|\s)\/\//);
+      const lineCommentIdx = lineCommentMatch
+        ? line.indexOf('//', lineCommentMatch.index)
+        : -1;
       const startIdx = line.indexOf('/*');
-      if (startIdx !== -1) {
+      if (startIdx !== -1 && (lineCommentIdx === -1 || startIdx < lineCommentIdx)) {
         const endIdx = line.indexOf('*/', startIdx + 2);
         if (endIdx === -1) {
           // Block comment starts but doesn't end on this line
@@ -123,35 +129,9 @@ function addBracketBlockRanges(lines: string[], ranges: FoldingRange[]): void {
   let inBlockComment = false;
 
   for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    let line = lines[lineNum];
-
-    // Handle block comments
-    if (inBlockComment) {
-      const endIdx = line.indexOf('*/');
-      if (endIdx !== -1) {
-        inBlockComment = false;
-        line = line.substring(endIdx + 2);
-      } else {
-        continue;
-      }
-    }
-
-    const blockStart = line.indexOf('/*');
-    if (blockStart !== -1) {
-      const blockEnd = line.indexOf('*/', blockStart + 2);
-      if (blockEnd === -1) {
-        inBlockComment = true;
-        line = line.substring(0, blockStart);
-      } else {
-        line = line.substring(0, blockStart) + line.substring(blockEnd + 2);
-      }
-    }
-
-    // Skip line comments
-    const commentIdx = line.indexOf('//');
-    if (commentIdx !== -1) {
-      line = line.substring(0, commentIdx);
-    }
+    const stripped = stripComments(lines[lineNum], inBlockComment);
+    const line = stripped.code;
+    inBlockComment = stripped.inBlockComment;
 
     // Find bracket expressions
     const bracketRegex = /\[([^\]]*)\]/g;
@@ -161,7 +141,11 @@ function addBracketBlockRanges(lines: string[], ranges: FoldingRange[]): void {
       const content = match[1].trim().toLowerCase();
 
       if (content.startsWith('if ') || content === 'if' || content.startsWith('if random')) {
-        stack.push({ line: lineNum });
+        // Inline forms ([if cond ? a : b], [if random : a | b]) are
+        // self-contained - same rule as validateBrackets in parser.ts
+        if (!content.includes('?') && !content.includes(':')) {
+          stack.push({ line: lineNum });
+        }
       } else if (content === 'endif' || content === 'end') {
         if (stack.length > 0) {
           const frame = stack.pop()!;

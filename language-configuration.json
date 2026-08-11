@@ -17,8 +17,7 @@
         ["[", "]"],
         ["(", ")"],
         ["\"", "\""],
-        ["'", "'"],
-        ["_", "_"]
+        ["'", "'"]
     ],
     // symbols that can be used to surround a selection
     "surroundingPairs": [
@@ -29,8 +28,9 @@
         ["'", "'"],
         ["_", "_"]
     ],
+    "wordPattern": "(-?\\d*\\.\\d\\w*)|([^\\`\\~\\!\\@\\#\\%\\^\\&\\*\\(\\)\\-\\=\\+\\[\\{\\]\\}\\\\\\|\\;\\:\\'\\\"\\,\\.\\<\\>\\/\\?\\s]+)",
     "indentationRules": {
         "increaseIndentPattern": "^[ \t]*\\*+.*$|^[ \t]*\\[(if.*|else.*)\\]$|^={3}.*$",
         "decreaseIndentPattern": "^[ \t]*\\*+.*$"
-      },
+      }
 }

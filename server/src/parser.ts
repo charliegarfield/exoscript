@@ -16,7 +16,7 @@ import {
   TildeCommandNode,
   Range,
 } from './types';
-import { tokenize, LexerResult } from './lexer';
+import { tokenize, stripComments, LexerResult } from './lexer';
 
 export interface ParserResult {
   document: DocumentNode;
@@ -29,11 +29,8 @@ export class Parser {
   private current = 0;
   private stories: StoryNode[] = [];
   private isDisabled = false;
-  private lines: string[];
 
-  constructor(private text: string) {
-    this.lines = text.split(/\r?\n/);
-  }
+  constructor(private text: string) {}
 
   public parse(): ParserResult {
     // First, tokenize
@@ -51,10 +48,10 @@ export class Parser {
       if (token.type === TokenType.STORY_HEADER) {
         this.parseStory();
       } else if (token.type === TokenType.TILDE_DISABLED) {
-        // ~disabled found not at start
-        if (this.current > 0) {
+        // ~disabled only takes effect before the first story
+        if (this.stories.length > 0) {
           this.errors.push({
-            message: '~disabled should be on the first line of the file',
+            message: '~disabled should appear before the first story header',
             range: token.range,
             severity: 'warning',
             code: 'misplaced-disabled'
@@ -64,15 +61,7 @@ export class Parser {
       } else if (token.type === TokenType.EOF) {
         break;
       } else if (token.type === TokenType.TEXT) {
-        // Check for content before first story header
-        if (this.stories.length === 0 && !this.isDisabled && token.value.trim()) {
-          this.errors.push({
-            message: 'Content found before story header. Expected: === storyID',
-            range: token.range,
-            severity: 'warning',
-            code: 'content-before-story'
-          });
-        }
+        // Content before story header is valid in Exoscript (e.g., comments, metadata)
         this.advance();
       } else if (this.isSkippableToken(token)) {
         this.advance();
@@ -96,8 +85,8 @@ export class Parser {
   }
 
   private checkDisabled(): void {
-    // Look for ~disabled in the first few tokens (before any story header)
-    for (let i = 0; i < this.tokens.length && i < 10; i++) {
+    // Look for ~disabled anywhere before the first story header
+    for (let i = 0; i < this.tokens.length; i++) {
       const token = this.tokens[i];
       if (token.type === TokenType.STORY_HEADER) {
         break;
@@ -113,6 +102,16 @@ export class Parser {
     const headerToken = this.advance();
     const storyId = headerToken.data?.storyId || 'unknown';
 
+    const existing = this.stories.find(s => s.id.toLowerCase() === storyId.toLowerCase());
+    if (existing) {
+      this.errors.push({
+        message: `Duplicate story ID: ${storyId} (also defined at line ${existing.headerRange.start.line + 1})`,
+        range: headerToken.range,
+        severity: 'warning',
+        code: 'duplicate-story-id'
+      });
+    }
+
     const story: StoryNode = {
       type: 'story',
       id: storyId,
@@ -121,6 +120,7 @@ export class Parser {
       requirements: [],
       mutations: [],
       choices: [],
+      jumps: [],
       choiceIds: new Map()
     };
 
@@ -135,6 +135,36 @@ export class Parser {
     // Parse story-level content until next story header
     let currentChoice: ChoiceNode | null = null;
     const choiceStack: ChoiceNode[] = [];
+
+    // Place a choice into the story/choice tree according to its star level
+    const placeChoice = (choiceNode: ChoiceNode, level: number, range: Range): ChoiceNode => {
+      if (level === 1) {
+        story.choices.push(choiceNode);
+        choiceStack.length = 0;
+        choiceStack.push(choiceNode);
+      } else {
+        while (choiceStack.length >= level) {
+          choiceStack.pop();
+        }
+        if (choiceStack.length > 0) {
+          const parent = choiceStack[choiceStack.length - 1];
+          parent.children.push(choiceNode);
+          choiceStack.push(choiceNode);
+        } else {
+          // Nested choice without parent - valid in Exoscript; the engine
+          // adjusts the level automatically (shipping scripts rely on this)
+          this.errors.push({
+            message: `Nested choice (level ${level}) has no parent - level will be adjusted`,
+            range: range,
+            severity: 'hint',
+            code: 'orphaned-choice'
+          });
+          story.choices.push(choiceNode);
+          choiceStack.push(choiceNode);
+        }
+      }
+      return choiceNode;
+    };
 
     while (!this.isAtEnd()) {
       const token = this.peek();
@@ -183,55 +213,28 @@ export class Parser {
         case TokenType.CHOICE:
           this.advance();
           const choiceNode = this.parseChoice(token);
-          const level = token.data?.choiceLevel || 1;
-
-          // Determine where to add this choice
-          if (level === 1) {
-            // Top-level choice
-            story.choices.push(choiceNode);
-            choiceStack.length = 0;
-            choiceStack.push(choiceNode);
-          } else {
-            // Nested choice - find parent
-            while (choiceStack.length >= level) {
-              choiceStack.pop();
-            }
-            if (choiceStack.length > 0) {
-              const parent = choiceStack[choiceStack.length - 1];
-              parent.children.push(choiceNode);
-              choiceStack.push(choiceNode);
-            } else {
-              // Orphaned nested choice
-              this.errors.push({
-                message: `Choice level ${level} has no parent choice`,
-                range: token.range,
-                severity: 'error',
-                code: 'orphaned-choice'
-              });
-              story.choices.push(choiceNode);
-              choiceStack.push(choiceNode);
-            }
-          }
-          currentChoice = choiceNode;
+          currentChoice = placeChoice(choiceNode, token.data?.choiceLevel || 1, token.range);
           break;
 
         case TokenType.CHOICE_ID:
           this.advance();
           const choiceIdNode = this.parseChoiceId(token);
 
-          // Register the choice ID
-          if (story.choiceIds.has(choiceIdNode.id)) {
+          // Register the choice ID (duplicates are allowed but warned about).
+          // Keys are lowercased because the engine resolves targets case-insensitively.
+          const idKey = choiceIdNode.id.toLowerCase();
+          if (story.choiceIds.has(idKey)) {
             this.errors.push({
-              message: `Duplicate choice ID: ${choiceIdNode.id}`,
+              message: `Duplicate choice ID: ${choiceIdNode.id} (will override previous)`,
               range: token.range,
-              severity: 'error',
+              severity: 'hint',
               code: 'duplicate-choice-id'
             });
-          } else {
-            story.choiceIds.set(choiceIdNode.id, choiceIdNode);
           }
+          // Always register (overwrite if duplicate, like the original engine)
+          story.choiceIds.set(idKey, choiceIdNode);
 
-          // If this is a hidden choice (*=), create a choice node
+          // If this is a hidden choice (*=), create a choice node at its star level
           if (choiceIdNode.isHidden) {
             const hiddenChoice: ChoiceNode = {
               type: 'choice',
@@ -245,10 +248,7 @@ export class Parser {
               children: [],
               pageBreaks: []
             };
-            story.choices.push(hiddenChoice);
-            choiceStack.length = 0;
-            choiceStack.push(hiddenChoice);
-            currentChoice = hiddenChoice;
+            currentChoice = placeChoice(hiddenChoice, hiddenChoice.level, token.range);
           } else if (currentChoice) {
             // = choiceID on its own line - attach to current choice
             currentChoice.id = choiceIdNode;
@@ -261,12 +261,8 @@ export class Parser {
           if (currentChoice) {
             currentChoice.jumps.push(jumpNode);
           } else {
-            this.errors.push({
-              message: 'Jump found outside of a choice',
-              range: token.range,
-              severity: 'warning',
-              code: 'orphaned-jump'
-            });
+            // Story-level jumps (before any choice) are valid Exoscript
+            story.jumps.push(jumpNode);
           }
           break;
 
@@ -351,52 +347,53 @@ export class Parser {
   }
 
   private validateJumpsInStory(story: StoryNode): void {
-    const validateChoice = (choice: ChoiceNode) => {
-      for (const jump of choice.jumps) {
-        if (jump.target) {
-          // Check for conditional jump syntax: > if condition ? target1 : target2
-          const conditionalMatch = jump.target.match(/^if\s+.+\s+\?\s+(\w+)\s*:\s*(\w+)$/);
-          if (conditionalMatch) {
-            // Validate both targets
-            const target1 = conditionalMatch[1];
-            const target2 = conditionalMatch[2];
-            if (!story.choiceIds.has(target1) && !this.isSpecialJumpTarget(target1)) {
-              this.errors.push({
-                message: `Unknown jump target: ${target1}`,
-                range: jump.range,
-                severity: 'warning',
-                code: 'unknown-jump-target'
-              });
-            }
-            if (!story.choiceIds.has(target2) && !this.isSpecialJumpTarget(target2)) {
-              this.errors.push({
-                message: `Unknown jump target: ${target2}`,
-                range: jump.range,
-                severity: 'warning',
-                code: 'unknown-jump-target'
-              });
-            }
-          } else {
-            // Simple jump target
-            const target = jump.target.split(/\s/)[0]; // Handle "backonce" etc.
-            if (!story.choiceIds.has(target) && !this.isSpecialJumpTarget(target)) {
-              this.errors.push({
-                message: `Unknown jump target: ${target}`,
-                range: jump.range,
-                severity: 'warning',
-                code: 'unknown-jump-target'
-              });
+    const validateTarget = (target: string, range: Range) => {
+      // Choice ID lookup is case-insensitive, matching the engine
+      if (!story.choiceIds.has(target.toLowerCase()) && !this.isSpecialJumpTarget(target)) {
+        this.errors.push({
+          message: `Unknown jump target: ${target}`,
+          range: range,
+          severity: 'warning',
+          code: 'unknown-jump-target'
+        });
+      }
+    };
+
+    const validateJump = (jump: JumpNode) => {
+      if (!jump.target) {
+        return;
+      }
+      // Conditional jump syntax: > if condition ? target1 : target2
+      // (target2 optional; spacing around ? and : is flexible)
+      if (/^if\b/i.test(jump.target)) {
+        const qIdx = jump.target.indexOf('?');
+        if (qIdx !== -1) {
+          for (const part of jump.target.substring(qIdx + 1).split(':')) {
+            const target = part.trim().split(/\s/)[0];
+            if (target) {
+              validateTarget(target, jump.range);
             }
           }
         }
+        // No '?' - malformed or unrecognized form; don't guess at targets
+        return;
       }
+      // Simple jump target
+      validateTarget(jump.target.split(/\s/)[0], jump.range);
+    };
 
-      // Recurse into children
+    const validateChoice = (choice: ChoiceNode) => {
+      for (const jump of choice.jumps) {
+        validateJump(jump);
+      }
       for (const child of choice.children) {
         validateChoice(child);
       }
     };
 
+    for (const jump of story.jumps) {
+      validateJump(jump);
+    }
     for (const choice of story.choices) {
       validateChoice(choice);
     }
@@ -411,7 +408,12 @@ export class Parser {
       'backonce',
       'startonce',
     ];
-    return specialTargets.includes(target.toLowerCase());
+    const lowerTarget = target.toLowerCase();
+    // snippet_ prefixed targets are cross-file and validated separately
+    if (lowerTarget.startsWith('snippet_')) {
+      return true;
+    }
+    return specialTargets.includes(lowerTarget);
   }
 
   private isSkippableToken(token: Token): boolean {
@@ -469,35 +471,9 @@ export function validateBrackets(text: string): ParseError[] {
   let inBlockComment = false;
 
   for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    let line = lines[lineNum];
-
-    // Handle block comments
-    if (inBlockComment) {
-      const endIdx = line.indexOf('*/');
-      if (endIdx !== -1) {
-        inBlockComment = false;
-        line = line.substring(endIdx + 2);
-      } else {
-        continue;
-      }
-    }
-
-    const blockStart = line.indexOf('/*');
-    if (blockStart !== -1) {
-      const blockEnd = line.indexOf('*/', blockStart + 2);
-      if (blockEnd === -1) {
-        inBlockComment = true;
-        line = line.substring(0, blockStart);
-      } else {
-        line = line.substring(0, blockStart) + line.substring(blockEnd + 2);
-      }
-    }
-
-    // Skip line comments
-    const commentIdx = line.indexOf('//');
-    if (commentIdx !== -1) {
-      line = line.substring(0, commentIdx);
-    }
+    const stripped = stripComments(lines[lineNum], inBlockComment);
+    const line = stripped.code;
+    inBlockComment = stripped.inBlockComment;
 
     // Find bracket expressions
     const bracketRegex = /\[([^\]]*)\]/g;
@@ -510,11 +486,17 @@ export function validateBrackets(text: string): ParseError[] {
       // Opening brackets
       if (content.startsWith('if ') || content === 'if' ||
           content.startsWith('if random')) {
-        stack.push({
-          keyword: 'if',
-          line: lineNum,
-          character: startChar
-        });
+        // Inline forms are complete on their own and don't need [endif]:
+        //   [if cond ? then : else]   [if cond ? then]
+        //   [if random : a | b | c]   [if cond : a | b]
+        const isInline = content.includes('?') || content.includes(':');
+        if (!isInline) {
+          stack.push({
+            keyword: 'if',
+            line: lineNum,
+            character: startChar
+          });
+        }
       }
       // Closing brackets
       else if (content === 'endif' || content === 'end') {
