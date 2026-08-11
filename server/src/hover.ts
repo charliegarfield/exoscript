@@ -67,7 +67,8 @@ const PREFIX_DESCRIPTIONS: Record<string, { name: string; description: string }>
   },
   'hog_': {
     name: 'Groundhog Variable',
-    description: 'Persistent variable. Survives across groundhog loops (new game+).'
+    description: 'Persistent variable. Survives across groundhog loops (new game+).\n\n' +
+      'Choices conditioned on a `hog_` show the wormhole "from a past life" icon.'
   },
   'skill_': {
     name: 'Skill',
@@ -75,7 +76,9 @@ const PREFIX_DESCRIPTIONS: Record<string, { name: string; description: string }>
   },
   'love_': {
     name: 'Relationship',
-    description: 'Relationship value with a character. Affects dialogue and romance options.'
+    description: 'Relationship value with a character. Affects dialogue and romance options.\n\n' +
+      '⚠️ Values are doubled in-game: `~set love_x +2` grants 4 friendship points ' +
+      '(`++` grants 2). Use increments in multiples of 2.'
   },
   'story_': {
     name: 'Story Flag',
@@ -88,6 +91,67 @@ const PREFIX_DESCRIPTIONS: Record<string, { name: string; description: string }>
   'call_': {
     name: 'Function Call',
     description: 'Calls a game function and returns its value.'
+  }
+};
+
+/**
+ * Special memory patterns with engine side effects
+ */
+const SPECIAL_MEM_PATTERNS: Array<{ prefix: string; name: string; description: string }> = [
+  {
+    prefix: 'mem_flirt_',
+    name: 'Flirt Memory',
+    description: 'Setting `mem_flirt_<characterID>` after a choice makes the lips (romance) icon appear on it.'
+  },
+  {
+    prefix: 'mem_dead_',
+    name: 'Death Memory',
+    description: 'Setting `mem_dead_<name>` to anything other than false marks the character as dead ' +
+      'in the character screen. The value is displayed as the cause of death.'
+  }
+];
+
+/**
+ * Special ~set targets (engine values, not variables)
+ */
+const SPECIAL_SET_DESCRIPTIONS: Record<string, { name: string; description: string }> = {
+  'bg': {
+    name: 'Background',
+    description: 'Sets the scene background. Must be set at the start of non-character events or the ' +
+      'screen stays black. Background IDs are listed in localization.tsv.'
+  },
+  'speaker': {
+    name: 'Speaker',
+    description: 'Sets the speaking character - dialogue in quotes takes their color. Persists until ' +
+      'changed. ⚠️ Setting a character sprite also changes the speaker.'
+  },
+  'left': {
+    name: 'Sprite Position (left)',
+    description: 'Shows a character sprite on the left. ⚠️ Setting a sprite also changes the speaker to that character.'
+  },
+  'midleft': {
+    name: 'Sprite Position (mid-left)',
+    description: 'Shows a character sprite at mid-left. ⚠️ Setting a sprite also changes the speaker to that character.'
+  },
+  'midright': {
+    name: 'Sprite Position (mid-right)',
+    description: 'Shows a character sprite at mid-right. ⚠️ Setting a sprite also changes the speaker to that character.'
+  },
+  'right': {
+    name: 'Sprite Position (right)',
+    description: 'Shows a character sprite on the right. ⚠️ Setting a sprite also changes the speaker to that character.'
+  },
+  'card': {
+    name: 'Card Grant',
+    description: 'Gives the player a card. Card IDs are listed in ExocolonistCards - cards.tsv.'
+  },
+  'status': {
+    name: 'Status',
+    description: 'Applies a status. Status IDs are listed in Exocolonist - statuses.tsv.'
+  },
+  'effect': {
+    name: 'Effect',
+    description: 'Plays a visual or audio effect (e.g. transitions, silence).'
   }
 };
 
@@ -115,6 +179,14 @@ export function getHover(
   const line = getLine(document, position.line);
   if (!line) return null;
 
+  // Jump arrows (>, >>, >!, >>>) - hover on the arrow itself, which has no
+  // word characters and would otherwise produce no hover
+  const indent = line.length - line.trimStart().length;
+  const arrowMatch = line.trimStart().match(/^(>{1,3}!?)/);
+  if (arrowMatch && position.character >= indent && position.character <= indent + arrowMatch[1].length) {
+    return createHover(getJumpArrowDescription(arrowMatch[1], line.trim()));
+  }
+
   // Get word at position
   const wordRange = getWordRangeAtPosition(line, position.character);
   if (!wordRange) return null;
@@ -134,6 +206,33 @@ export function getHover(
           COMMAND_DESCRIPTIONS[cmd].description
         );
       }
+    }
+  }
+
+  // Special ~set targets (bg, speaker, sprite positions, card, ...)
+  const setTargetMatch = line.trimStart().match(/^~set(?:if\s+[^?]+\?)?\s*(\w+)/);
+  if (setTargetMatch && word === setTargetMatch[1]) {
+    const special = SPECIAL_SET_DESCRIPTIONS[word.toLowerCase()];
+    if (special) {
+      return createHover(`**${special.name}**: \`~set ${word}\`\n\n${special.description}`);
+    }
+  }
+
+  // Battle / card challenge call
+  if (word === 'battle' && /~call/.test(line)) {
+    return createHover(
+      '**Card Challenge**: `~call battle(skill[_difficulty], winTarget, loseTarget)`\n\n' +
+      'Starts a card challenge. Difficulty is `easy`/`medium`/`hard`/`impossible` ' +
+      '(auto-balanced to age) or a year number; omit it to scale to the current age. ' +
+      'The win/lose arguments are jump anchors (`*= name`) in this story; the player ' +
+      'only sees the branch for their result. Both targets are optional.'
+    );
+  }
+
+  // Special memory patterns (mem_flirt_, mem_dead_)
+  for (const pattern of SPECIAL_MEM_PATTERNS) {
+    if (word.toLowerCase().startsWith(pattern.prefix)) {
+      return createHover(`**${pattern.name}**: \`${word}\`\n\n${pattern.description}`);
     }
   }
 
@@ -166,14 +265,26 @@ export function getHover(
           `**[${keyword}]**\n\n${BRACKET_DESCRIPTIONS[keyword]}`
         );
       }
+      // Pronoun-variant text: [nonbinary|female|male]
+      if (!BRACKET_DESCRIPTIONS[keyword]) {
+        const content = bracketMatch[0].replace(/^\[/, '').replace(/\]$/, '');
+        if (/^[^|[\]]+\|[^|[\]]*\|[^|[\]]*$/.test(content.trim())) {
+          return createHover(
+            `**Pronoun-variant text**: \`[${content.trim()}]\`\n\n` +
+            'The game displays one option based on Sol\'s pronouns, in the order ' +
+            '**[nonbinary|female|male]**. Used for pronouns, nicknames, verb forms - any text ' +
+            'that changes with the player\'s pronouns.'
+          );
+        }
+      }
       break;
     }
   }
 
-  // Check for jump targets - covers simple jumps and both branches of
-  // conditional jumps (> if cond ? target1 : target2)
+  // Check for jump targets - covers simple jumps, both branches of
+  // conditional jumps (> if cond ? target1 : target2), and battle win/lose anchors
   const trimmedLine = line.trimStart();
-  if (trimmedLine.startsWith('>')) {
+  if (trimmedLine.startsWith('>') || /battle\s*\(/.test(line)) {
     const story = findStoryAtLine(parseResult, position.line);
     if (story) {
       // Lookup is case-insensitive, matching the engine
@@ -211,6 +322,29 @@ export function getHover(
   }
 
   return null;
+}
+
+/**
+ * Describe a jump arrow (>, >>, >!, >>>)
+ */
+function getJumpArrowDescription(arrow: string, trimmedLine: string): string {
+  const hasTarget = /^>{1,3}!?\s*\w/.test(trimmedLine);
+  if (arrow === '>') {
+    return '**Jump** `> target`\n\nJumps to the anchor `*= target` in this story, with a page break.';
+  }
+  if (arrow === '>>') {
+    return '**Silent jump** `>> target`\n\nJumps to the anchor `*= target` without a page break.';
+  }
+  // >! or >>>
+  if (arrow === '>>>' && !hasTarget) {
+    return '**Return to choices** `>>>`\n\n' +
+      'Acts as `backonce` without displaying text: shows this branch, then returns the player ' +
+      'to the previous choice list (used for info choices like the bestiary).\n\n' +
+      '⚠️ On returning, the engine **re-executes the `~set` lines of the textbox it returns to** - ' +
+      'sprites or values set in this branch can be instantly overwritten.';
+  }
+  return `**No-break jump** \`${arrow} target\`\n\n` +
+    'Jumps to the anchor without inserting a page break, continuing in the same textbox.';
 }
 
 /**

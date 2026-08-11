@@ -4,6 +4,24 @@ All notable changes to the "exoscript" extension will be documented in this file
 
 ## [Unreleased]
 
+### Added
+
+- Card challenge (`~call battle(...)`) support: win/lose arguments are
+  validated as jump anchors, with go-to-definition, hover, skill-name
+  completion after `battle(`, and anchor completion after the comma. Skill
+  names and difficulty tiers (`easy`/`medium`/`hard`/`impossible`/year
+  number, or omitted) are validated against the game's actual usage
+- Warning when `~set`ting built-in read-only values (`age`, `season`,
+  `month`, `year`) - these can only be checked with `~if`
+- Hover documentation for engine behaviors: jump arrows including the `>>>`
+  return-to-choices re-execution gotcha, pronoun-variant text
+  (`[nonbinary|female|male]`), special `~set` targets (bg, speaker, sprite
+  positions, card, status, effect), `mem_flirt_`/`mem_dead_` side effects,
+  the in-game doubling of `love_` changes, and the `hog_` wormhole icon
+- New snippets: event skeleton, battle challenge with win/lose anchors,
+  `[if]/[else]/[end]` block, pronoun-variant text, info choice (`>>>`),
+  set speaker, set background
+
 ## [2.0.0]
 
 First release shipping the full language server (the LSP work from the 1.1-1.2

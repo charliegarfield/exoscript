@@ -15,6 +15,7 @@ import {
   JumpNode,
   TildeCommandNode,
   Range,
+  BATTLE_SKILLS,
 } from './types';
 import { tokenize, stripComments, LexerResult } from './lexer';
 
@@ -382,10 +383,61 @@ export class Parser {
       validateTarget(jump.target.split(/\s/)[0], jump.range);
     };
 
+    // Card challenges: ~call battle(skill_difficulty, winTarget, loseTarget)
+    // - the win/lose arguments are jump anchors in this story
+    const validateBattles = (commands: TildeCommandNode[]) => {
+      for (const cmd of commands) {
+        if (cmd.command !== 'call' && cmd.command !== 'callif') {
+          continue;
+        }
+        if (!/battle\s*\(/.test(cmd.expression)) {
+          continue;
+        }
+        // Difficulty is optional (defaults to the current age); the shipping
+        // scripts also use an undocumented "impossible" tier
+        const m = cmd.expression.match(
+          /battle\s*\(\s*([A-Za-z]+?)(?:_(\w+))?\s*(?:,\s*(\w+)\s*(?:,\s*(\w+)\s*)?)?\)/
+        );
+        if (!m) {
+          this.errors.push({
+            message: 'Malformed battle call. Expected: battle(skill[_difficulty], winTarget, loseTarget)',
+            range: cmd.range,
+            severity: 'warning',
+            code: 'malformed-battle'
+          });
+          continue;
+        }
+        const [, skill, difficulty, winTarget, loseTarget] = m;
+        if (!(BATTLE_SKILLS as readonly string[]).includes(skill.toLowerCase())) {
+          this.errors.push({
+            message: `Unknown battle skill: ${skill}. Known skills: ${BATTLE_SKILLS.join(', ')}`,
+            range: cmd.range,
+            severity: 'warning',
+            code: 'unknown-battle-skill'
+          });
+        }
+        if (difficulty && !/^(easy|medium|hard|impossible|\d+)$/i.test(difficulty)) {
+          this.errors.push({
+            message: `Invalid battle difficulty: ${difficulty}. Use easy, medium, hard, impossible, or a year number`,
+            range: cmd.range,
+            severity: 'warning',
+            code: 'invalid-battle-difficulty'
+          });
+        }
+        if (winTarget) {
+          validateTarget(winTarget, cmd.range);
+        }
+        if (loseTarget) {
+          validateTarget(loseTarget, cmd.range);
+        }
+      }
+    };
+
     const validateChoice = (choice: ChoiceNode) => {
       for (const jump of choice.jumps) {
         validateJump(jump);
       }
+      validateBattles(choice.mutations);
       for (const child of choice.children) {
         validateChoice(child);
       }
@@ -394,6 +446,7 @@ export class Parser {
     for (const jump of story.jumps) {
       validateJump(jump);
     }
+    validateBattles(story.mutations);
     for (const choice of story.choices) {
       validateChoice(choice);
     }

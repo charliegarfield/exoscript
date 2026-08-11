@@ -5,6 +5,74 @@
         "body": ["=== ${1:eventid} =============================================="],
         "description": "create event line"
     },
+    "Event skeleton": {
+        "scope": "exoscript",
+        "prefix": ["event"],
+        "body": [
+            "=== ${1:eventID} ==============================================",
+            "\t~if ${2:condition}",
+            "\t",
+            "\t~set bg = ${3:background}",
+            "\t",
+            "\t${4:Event text}"
+        ],
+        "description": "full event skeleton with requirement and background"
+    },
+    "Battle challenge": {
+        "scope": "exoscript",
+        "prefix": ["battle", "challenge"],
+        "body": [
+            "~call battle(${1|animals,biology,bravery,combat,creativity,empathy,engineering,organization,perception,persuasion,reasoning,toughness|}_${2|easy,medium,hard,impossible|}, ${3:win}, ${4:lose})",
+            "",
+            "*= ${3:win}",
+            "\t${5:Victory text}",
+            "",
+            "*= ${4:lose}",
+            "\t${6:Defeat text}"
+        ],
+        "description": "card challenge with win/lose jump anchors"
+    },
+    "Conditional text block": {
+        "scope": "exoscript",
+        "prefix": ["if", "[if"],
+        "body": [
+            "[if ${1:condition}]",
+            "\t${2:text if true}",
+            "[else]",
+            "\t${3:text if false}",
+            "[end]"
+        ],
+        "description": "conditional text with [if]/[else]/[end]"
+    },
+    "Pronoun-variant text": {
+        "scope": "exoscript",
+        "prefix": ["pronoun", "nb"],
+        "body": ["[${1:they}|${2:she}|${3:he}]"],
+        "description": "text varying with Sol's pronouns: [nonbinary|female|male]"
+    },
+    "Info choice (return to options)": {
+        "scope": "exoscript",
+        "prefix": ["info"],
+        "body": [
+            "* ${1:Tell me more}",
+            "\t${2:Extra information the player can read}",
+            "\t",
+            "\t>>>"
+        ],
+        "description": "choice that shows info then returns to the choice list"
+    },
+    "Set speaker": {
+        "scope": "exoscript",
+        "prefix": ["speaker"],
+        "body": ["~set speaker = ${1:characterID}"],
+        "description": "set the speaking character (dialogue color)"
+    },
+    "Set background": {
+        "scope": "exoscript",
+        "prefix": ["bg"],
+        "body": ["~set bg = ${1:backgroundID}"],
+        "description": "set the scene background (IDs in localization.tsv)"
+    },
     "Anemone": {
         "scope": "exoscript",
         "prefix": ["anne", "ane", "Anemone"],

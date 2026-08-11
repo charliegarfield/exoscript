@@ -12,7 +12,7 @@ import {
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { StoryNode } from './types';
+import { StoryNode, BATTLE_SKILLS } from './types';
 import { ParserResult } from './parser';
 
 /**
@@ -312,6 +312,36 @@ export function getCompletions(
       });
     }
 
+    return completions;
+  }
+
+  // Battle skill completion: ~call battle(<here>
+  if (linePrefix.match(/battle\s*\(\s*\w*$/)) {
+    return BATTLE_SKILLS.map(skill => ({
+      label: skill,
+      kind: CompletionItemKind.EnumMember,
+      detail: 'Battle skill',
+      insertText: `${skill}_`,
+      documentation: `Card challenge on ${skill}. Follow with easy, medium, hard, or a year number.`
+    }));
+  }
+
+  // Battle win/lose target completion: ~call battle(skill_diff, <here>
+  if (linePrefix.match(/battle\s*\([^)]*,\s*\w*$/)) {
+    const story = findStoryAtLine(parseResult, position.line);
+    const completions = [...SPECIAL_JUMP_COMPLETIONS];
+    if (story) {
+      for (const [key, choiceId] of story.choiceIds) {
+        if (key !== 'start') {
+          completions.push({
+            label: choiceId.id,
+            kind: CompletionItemKind.Reference,
+            detail: choiceId.isHidden ? 'Hidden choice' : 'Choice ID',
+            documentation: `Defined at line ${choiceId.range.start.line + 1}`
+          });
+        }
+      }
+    }
     return completions;
   }
 

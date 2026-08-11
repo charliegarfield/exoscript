@@ -219,7 +219,30 @@ function additionalValidation(text: string, diagnostics: Diagnostic[]): void {
       }
     }
 
-    // 5. Check for suspicious operator usage
+    // 5. Built-in time values are read-only: they can be checked with ~if
+    // but never set. (~setif's condition may mention them freely - only the
+    // assignment target after ? matters.)
+    const setTargetMatch =
+      trimmed.match(/^~setif\s+[^?]*\?\s*(\w+)/i) ||
+      trimmed.match(/^~set\s+(\w+)/i);
+    if (setTargetMatch) {
+      const target = setTargetMatch[1].toLowerCase();
+      if (['age', 'season', 'month', 'year'].includes(target)) {
+        const targetIdx = line.lastIndexOf(setTargetMatch[1]);
+        diagnostics.push({
+          severity: DiagnosticSeverity.Warning,
+          range: {
+            start: { line: lineNum, character: targetIdx },
+            end: { line: lineNum, character: targetIdx + setTargetMatch[1].length }
+          },
+          message: `'${target}' is a built-in read-only value - it can be checked with ~if but not set`,
+          source: 'exoscript',
+          code: 'readonly-container'
+        });
+      }
+    }
+
+    // 6. Check for suspicious operator usage
     if (tildeMatch && ['if', 'ifd'].includes(tildeMatch[1].toLowerCase())) {
       // Check for single = when == might be intended (but = is valid in Exoscript)
       // Check for common operator mistakes

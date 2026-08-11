@@ -551,10 +551,11 @@ connection.onDefinition(
     const lines = text.split(/\r?\n/);
     const line = lines[position.line] || '';
 
-    // On jump lines, resolve the word under the cursor - this covers simple
-    // jumps and both branches of conditional jumps (> if cond ? a : b).
+    // On jump lines and battle calls, resolve the word under the cursor -
+    // this covers simple jumps, both branches of conditional jumps
+    // (> if cond ? a : b), and battle(skill_diff, win, lose) anchors.
     // All lookups are case-insensitive, matching the engine.
-    if (line.trimStart().startsWith('>')) {
+    if (line.trimStart().startsWith('>') || /battle\s*\(/.test(line)) {
       const word = getWordAtCharacter(line, position.character);
       if (word) {
         // Check for cross-file snippet first

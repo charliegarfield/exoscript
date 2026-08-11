@@ -631,6 +631,126 @@ Text`,
     expectedErrors: ['disabled'],  // Info message about disabled, no misplaced warning
   },
 
+  // ========== BATTLE / CARD CHALLENGE TESTS ==========
+  {
+    name: 'Valid battle with win/lose anchors',
+    code: `=== test
+* Fight!
+  ~call battle(combat_hard, win, lose)
+*= win
+  You win!
+*= lose
+  You lose.`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Battle without targets is valid',
+    code: `=== test
+* Try it
+  ~call battle(animals_13)
+  Something happens.`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Battle with year-number difficulty is valid',
+    code: `=== test
+* Fight!
+  ~call battle(bravery_16, win, lose)
+*= win
+  Text
+*= lose
+  Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Battle targets are case-insensitive',
+    code: `=== test
+* Fight!
+  ~call battle(combat_easy, winFight, lose)
+*= winfight
+  Text
+*= lose
+  Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Battle with unknown win target warns',
+    code: `=== test
+* Fight!
+  ~call battle(combat_hard, nowhere, lose)
+*= lose
+  Text`,
+    expectedErrors: ['Unknown jump target: nowhere'],
+  },
+  {
+    name: 'Battle with unknown skill warns',
+    code: `=== test
+* Fight!
+  ~call battle(swimming_hard, win, lose)
+*= win
+  Text
+*= lose
+  Text`,
+    expectedErrors: ['Unknown battle skill: swimming'],
+  },
+  {
+    name: 'Battle with invalid difficulty warns',
+    code: `=== test
+* Fight!
+  ~call battle(combat_brutal, win, lose)
+*= win
+  Text
+*= lose
+  Text`,
+    expectedErrors: ['Invalid battle difficulty'],
+  },
+  {
+    name: 'Battle with bare skill (no difficulty) is valid',
+    code: `=== test
+* Fight!
+  ~call battle(combat, win, lose)
+  ~call battle(toughness_impossible)
+*= win
+  Text
+*= lose
+  Text`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Story-level battle call is validated',
+    code: `=== test
+~call battle(empathy_medium, nowhere)
+Text`,
+    expectedErrors: ['Unknown jump target: nowhere'],
+  },
+
+  // ========== READ-ONLY CONTAINER TESTS ==========
+  {
+    name: 'Setting a read-only time value warns',
+    code: `=== test
+~set season = dust`,
+    expectedErrors: ['read-only'],
+  },
+  {
+    name: 'Read-only value in ~setif condition is fine',
+    code: `=== test
+~setif season = dust ? bg = geoponics : bg = greenhouse`,
+    expectedErrors: [],
+  },
+  {
+    name: 'Setting age warns',
+    code: `=== test
+~set age = 15`,
+    expectedErrors: ['read-only'],
+  },
+  {
+    name: 'Checking age with ~if is fine',
+    code: `=== test
+~if age = 15
+Text`,
+    expectedErrors: [],
+  },
+
   // ========== PAGE BREAK TESTS ==========
   {
     name: 'Valid page break',

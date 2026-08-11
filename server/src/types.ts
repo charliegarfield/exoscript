@@ -171,6 +171,25 @@ export const VARIABLE_PREFIXES = [
 
 export type VariablePrefix = typeof VARIABLE_PREFIXES[number];
 
+// Skills usable in card challenges: ~call battle(skill_difficulty, win, lose)
+// (extracted from the game's own scripts; kudos/stress/rebellion are not battle skills)
+export const BATTLE_SKILLS = [
+  'animals',
+  'biology',
+  'bravery',
+  'combat',
+  'creativity',
+  'empathy',
+  'engineering',
+  'organization',
+  'perception',
+  'persuasion',
+  'reasoning',
+  'toughness',
+] as const;
+
+export type BattleSkill = typeof BATTLE_SKILLS[number];
+
 // Valid tilde commands
 export const TILDE_COMMANDS = [
   'if',
